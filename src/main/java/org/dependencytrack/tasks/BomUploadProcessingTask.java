@@ -36,10 +36,12 @@ import org.dependencytrack.notification.NotificationGroup;
 import org.dependencytrack.notification.NotificationScope;
 import org.dependencytrack.notification.vo.BomConsumedOrProcessed;
 import org.dependencytrack.parser.cyclonedx.util.ModelConverter;
-import org.dependencytrack.parser.dependencycheck.resolver.ComponentResolver;
+import org.dependencytrack.parser.common.resolver.ComponentResolver;
 import org.dependencytrack.parser.spdx.rdf.SpdxDocumentParser;
 import org.dependencytrack.persistence.QueryManager;
 import org.dependencytrack.util.CompressUtil;
+import org.dependencytrack.util.InternalComponentIdentificationUtil;
+
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Base64;
@@ -173,6 +175,7 @@ public class BomUploadProcessingTask implements Subscriber {
             resolvedComponent.setSha3_256(component.getSha3_256());
             resolvedComponent.setSha3_512(component.getSha3_512());
             resolvedComponent.setPurl(component.getPurl());
+            resolvedComponent.setInternal(component.isInternal());
             resolvedComponent.setClassifier(component.getClassifier());
             resolvedComponent.setDescription(component.getDescription());
             resolvedComponent.setFilename(component.getFilename());
@@ -190,6 +193,7 @@ public class BomUploadProcessingTask implements Subscriber {
                     + ", version:" + component.getVersion()
                     + ", purl:" +  component.getPurl()
                     + ") is not resolved. Creating new component");
+            component.setInternal(InternalComponentIdentificationUtil.isInternalComponent(component, qm));
             component = qm.createComponent(component, false);
 
             final long oid = component.getId();

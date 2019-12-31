@@ -22,6 +22,7 @@ import alpine.json.TrimmedStringDeserializer;
 import alpine.validation.RegexSequence;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonInclude;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 import com.github.packageurl.PackageURL;
@@ -63,7 +64,6 @@ import java.util.UUID;
                 @Persistent(name = "resolvedLicense"),
                 @Persistent(name = "parent"),
                 @Persistent(name = "children"),
-                @Persistent(name = "scans"),
                 @Persistent(name = "boms"),
                 @Persistent(name = "vulnerabilities"),
         })
@@ -178,6 +178,11 @@ public class Component implements Serializable {
     private PackageURL purl;
 
     @Persistent
+    @Column(name = "INTERNAL", allowsNull = "true") // New column, must allow nulls on existing databases
+    @JsonProperty("isInternal")
+    private Boolean internal;
+
+    @Persistent
     @Column(name = "DESCRIPTION", jdbcType = "VARCHAR", length = 1024)
     @Size(max = 1024)
     @JsonDeserialize(using = TrimmedStringDeserializer.class)
@@ -209,11 +214,6 @@ public class Component implements Serializable {
     @Persistent(mappedBy = "parent")
     @Order(extensions = @Extension(vendorName = "datanucleus", key = "list-ordering", value = "id ASC"))
     private Collection<Component> children;
-
-    @Persistent
-    @Order(extensions = @Extension(vendorName = "datanucleus", key = "list-ordering", value = "id ASC"))
-    @JsonIgnore
-    private List<Scan> scans;
 
     @Persistent
     @Order(extensions = @Extension(vendorName = "datanucleus", key = "list-ordering", value = "id ASC"))
@@ -363,6 +363,17 @@ public class Component implements Serializable {
         this.purl = purl;
     }
 
+    public boolean isInternal() {
+        if (internal == null) {
+            return false;
+        }
+        return internal;
+    }
+
+    public void setInternal(boolean internal) {
+        this.internal = internal;
+    }
+
     public String getDescription() {
         return description;
     }
@@ -409,14 +420,6 @@ public class Component implements Serializable {
 
     public void setChildren(Collection<Component> children) {
         this.children = children;
-    }
-
-    public List<Scan> getScans() {
-        return scans;
-    }
-
-    public void setScans(List<Scan> scans) {
-        this.scans = scans;
     }
 
     public List<Bom> getBoms() {

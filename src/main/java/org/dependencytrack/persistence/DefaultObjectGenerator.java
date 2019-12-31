@@ -200,7 +200,6 @@ public class DefaultObjectGenerator implements ServletContextListener {
         final List<Permission> permissions = new ArrayList<>();
         for (final Permission permission: fullList) {
             if (permission.getName().equals(Permissions.Constants.VIEW_PORTFOLIO) ||
-                    permission.getName().equals(Permissions.Constants.SCAN_UPLOAD) ||
                     permission.getName().equals(Permissions.Constants.BOM_UPLOAD)) {
                 permissions.add(permission);
             }
@@ -215,6 +214,7 @@ public class DefaultObjectGenerator implements ServletContextListener {
         try (QueryManager qm = new QueryManager()) {
             LOGGER.info("Synchronizing default repositories to datastore");
             qm.createRepository(RepositoryType.GEM, "rubygems.org", "https://rubygems.org/", true);
+            qm.createRepository(RepositoryType.HEX, "hex.pm", "https://hex.pm/", true);
             qm.createRepository(RepositoryType.MAVEN, "central", "http://central.maven.org/maven2/", true);
             qm.createRepository(RepositoryType.MAVEN, "atlassian-public", "https://maven.atlassian.com/content/repositories/atlassian-public/", true);
             qm.createRepository(RepositoryType.MAVEN, "jboss-releases", "https://repository.jboss.org/nexus/content/repositories/releases/", true);

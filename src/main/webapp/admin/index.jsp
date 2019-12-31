@@ -36,6 +36,7 @@
                             <a data-toggle="tab" class="list-group-item" href="#generalConfigTab">General</a>
                             <a data-toggle="tab" class="list-group-item" href="#artifactsTab">BOM Formats</a>
                             <a data-toggle="tab" class="list-group-item" href="#emailTab">Email</a>
+                            <a data-toggle="tab" class="list-group-item" href="#internalComponentsTab">Internal Components</a>
                         </div>
                     </div>
                 </div>
@@ -67,6 +68,7 @@
                     <div id="collapseRepositories" class="panel-collapse collapse" role="tabpanel" aria-labelledby="headingRepositories">
                         <div class="list-group">
                             <a data-toggle="tab" class="list-group-item" href="#repositoryGemTab">Gem</a>
+                            <a data-toggle="tab" class="list-group-item" href="#repositoryHexTab">Hex</a>
                             <a data-toggle="tab" class="list-group-item" href="#repositoryMavenTab">Maven</a>
                             <a data-toggle="tab" class="list-group-item" href="#repositoryNpmTab">NPM</a>
                             <a data-toggle="tab" class="list-group-item" href="#repositoryNugetTab">NuGet</a>
@@ -156,9 +158,6 @@
                             <div class="checkbox">
                                 <label><input type="checkbox" id="artifactSpdxEnableInput" data-group-name="artifact" data-property-name="spdx.enabled"> Enable SPDX</label>
                             </div>
-                            <div class="checkbox">
-                                <label><input type="checkbox" id="artifactDependencyCheckEnableInput" data-group-name="artifact" data-property-name="dependencycheck.enabled"> Enable Dependency-Check XML reports (<strong>deprecated</strong>)</label>
-                            </div>
                             <button type="button" class="btn btn-primary btn-config-property" id="updateArtifactConfigButton" data-group-name="artifact">Update</button>
                         </div>
                         <div class="tab-pane admin-form-content" id="emailTab" data-admin-title="Email">
@@ -194,6 +193,23 @@
                             </div>
                             <button type="button" class="btn btn-default btn-config-property" data-group-name="email" data-toggle="modal" data-target="#modalEmailTestConfiguration">Test Configuration</button>
                             <button type="button" class="btn btn-primary btn-config-property" id="updateEmailConfigButton" data-group-name="email">Update</button>
+                        </div>
+                        <div class="tab-pane admin-form-content" id="internalComponentsTab" data-admin-title="Internal Components">
+                            <h3 class="admin-section-title">Internal Components</h3>
+                            <p>
+                                Internal components will be excluded from vulnerability scans and version checks that rely on external systems.
+                                Note that the regular expressions below must be compliant with <a href="https://docs.oracle.com/javase/8/docs/api/java/util/regex/Pattern.html">Java's regex syntax</a>.
+                            </p>
+                            <div class="form-group">
+                                <label for="internalComponentsConfigGroupsRegex">Regex for internal Component Namespaces</label>
+                                <input type="text" name="Internal Component Groups Regex" class="form-control" id="internalComponentsConfigGroupsRegex" data-group-name="internal-components" data-property-name="groups.regex">
+                            </div>
+                            <div class="form-group">
+                                <label for="internalComponentsConfigNamesRegex">Regex for internal Component Names</label>
+                                <input type="text" name="Internal Component Names Regex" class="form-control" id="internalComponentsConfigNamesRegex" data-group-name="internal-components" data-property-name="names.regex">
+                            </div>
+                            <button type="button" class="btn btn-primary btn-config-property" id="updateInternalComponentsConfiguration" data-group-name="internal-components">Update</button>
+                            <button type="button" class="btn btn-primary" id="identifyInternalComponentsButton">Identify internal components now</button>
                         </div>
                         <div class="tab-pane" id="scannerInternalTab" data-admin-title="Internal Analyzer">
                             <h3 class="admin-section-title">Internal Analyzer Configuration</h3>
@@ -340,6 +356,22 @@
                         <div class="tab-pane" id="repositoryGemTab" data-admin-title="Gem Repositories">
                             <table id="repositoryGemTable" class="table table-hover detail-table" data-toggle="table"
                                    data-url="<c:url value="/api/v1/repository/GEM?orderBy=resolutionOrder&sort=asc"/>"
+                                   data-response-handler="formatRepositoryTable"
+                                   data-query-params-type="pageSize" data-side-pagination="client" data-pagination="true"
+                                   data-silent-sort="false" data-page-size="10" data-page-list="[10, 25, 50, 100]"
+                                   data-detail-view="true" data-click-to-select="true" data-height="100%">
+                                <thead>
+                                <tr>
+                                    <th data-align="left" data-field="identifier">Identifier</th>
+                                    <th data-align="left" data-field="url">URL</th>
+                                    <th data-align="center" data-field="enabledLabel" data-class="tight">Enabled</th>
+                                </tr>
+                                </thead>
+                            </table>
+                        </div>
+                        <div class="tab-pane" id="repositoryHexTab" data-admin-title="Hex Repositories">
+                            <table id="repositoryHexTable" class="table table-hover detail-table" data-toggle="table"
+                                   data-url="<c:url value="/api/v1/repository/HEX?orderBy=resolutionOrder&sort=asc"/>"
                                    data-response-handler="formatRepositoryTable"
                                    data-query-params-type="pageSize" data-side-pagination="client" data-pagination="true"
                                    data-silent-sort="false" data-page-size="10" data-page-list="[10, 25, 50, 100]"

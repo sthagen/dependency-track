@@ -54,7 +54,7 @@ public class NugetMetaAnalyzer extends AbstractMetaAnalyzer {
      * {@inheritDoc}
      */
     public boolean isApplicable(final Component component) {
-        return component.getPurl() != null && PackageURL.StandardTypes.NUGET.equals(component.getPurl().getType());
+        return !component.isInternal() && component.getPurl() != null && PackageURL.StandardTypes.NUGET.equals(component.getPurl().getType());
     }
 
     /**
@@ -116,7 +116,7 @@ public class NugetMetaAnalyzer extends AbstractMetaAnalyzer {
                             final Date published = dateFormat.parse(updateTime);
                             meta.setPublishedTimestamp(published);
                         } catch (ParseException e) {
-                            LOGGER.warn("An error occurred while parsing upload time for " + component.getPurl().toString(), e);
+                            LOGGER.warn("An error occurred while parsing upload time for " + component.getPurl().toString() + " - Repo returned: " + updateTime);
                         }
                     }
                 }
