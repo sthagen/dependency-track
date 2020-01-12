@@ -24,7 +24,7 @@
     <parent>
         <groupId>us.springett</groupId>
         <artifactId>alpine-parent</artifactId>
-        <version>1.7.0-SNAPSHOT</version>
+        <version>1.7.1</version>
     </parent>
 
     <modelVersion>4.0.0</modelVersion>
@@ -81,8 +81,9 @@
 
     <properties>
         <!-- Dependency Versions -->
+        <frontend.version>1.0.0-alpha.7</frontend.version>
         <lib.alpine.version>${project.parent.version}</lib.alpine.version>
-        <lib.cpe-parser.version>2.0.1</lib.cpe-parser.version>
+        <lib.cpe-parser.version>2.0.2</lib.cpe-parser.version>
         <lib.cvss-calculator.version>1.2.1</lib.cvss-calculator.version>
         <lib.cyclonedx-java.version>2.5.1</lib.cyclonedx-java.version>
         <lib.jaxb.runtime.version>2.3.2</lib.jaxb.runtime.version>
@@ -279,12 +280,66 @@
         </testResources>
         <plugins>
             <plugin>
+                <artifactId>maven-antrun-plugin</artifactId>
+                <version>1.8</version>
+                <executions>
+                    <execution>
+                        <id>frontend-download</id>
+                        <phase>prepare-package</phase>
+                        <configuration>
+                            <target>
+                                <get src="https://registry.npmjs.org/@dependencytrack/frontend/-/frontend-${frontend.version}.tgz"
+                                     dest="${project.build.directory}"
+                                     verbose="true"/>
+                            </target>
+                        </configuration>
+                        <goals>
+                            <goal>run</goal>
+                        </goals>
+                    </execution>
+                    <execution>
+                        <id>frontend-extract</id>
+                        <phase>prepare-package</phase>
+                        <configuration>
+                            <target>
+                                <untar src="${project.build.directory}/frontend-${frontend.version}.tgz" compression="gzip"
+                                       dest="${project.build.directory}/frontend">
+                                    <patternset>
+                                        <include name="package/dist/**/*"/>
+                                    </patternset>
+                                </untar>
+                            </target>
+                        </configuration>
+                        <goals>
+                            <goal>run</goal>
+                        </goals>
+                    </execution>
+                    <execution>
+                        <id>frontend-resource-deploy</id>
+                        <phase>prepare-package</phase>
+                        <configuration>
+                            <target>
+                                <copy todir="${project.build.directory}/${project.artifactId}">
+                                    <fileset dir="${project.build.directory}/frontend/package/dist">
+                                        <include name="**/*"/>
+                                    </fileset>
+                                </copy>
+                            </target>
+                        </configuration>
+                        <goals>
+                            <goal>run</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+            <plugin>
                 <groupId>de.jutzig</groupId>
                 <artifactId>github-release-plugin</artifactId>
                 <version>${plugin.github-release-plugin.version}</version>
                 <configuration>
                     <releaseName>${project.version}</releaseName>
                     <tag>${project.version}</tag>
+                    <description>For official releases, refer to https://docs.dependencytrack.org/changelog/ for information about improvements and upgrade notes. If additional details are required, consult the closed issues for this release milestone.</description>
                     <!--
                          For snapshot pre-releases we want to override the existing snapshot
                          by deleting it first and re-uploading the artifact. Caution should
@@ -299,6 +354,7 @@
                                 <include>dependency-track.war</include>
                                 <include>dependency-track-embedded.war</include>
                                 <include>checksums.xml</include>
+                                <include>bom.xml</include>
                             </includes>
                         </fileSet>
                     </fileSets>
