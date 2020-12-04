@@ -31,6 +31,12 @@ import java.util.List;
 public interface ScanTask {
 
     /**
+     * Returns the name of the analyzer.
+     * @since 4.0.0
+     */
+    AnalyzerIdentity getAnalyzerIdentity();
+
+    /**
      * Analyzes all components in the portfolio.
      * @since 3.0.0
      */
@@ -48,8 +54,8 @@ public interface ScanTask {
      * a component with the specified PackageURL
      * @param packageUrl a PackageURL
      * @return true if the analyzer is capable of analyzing this type, false if not
-     * @since 3.2.0
+     * @since 4.0.0
      */
-    boolean shouldAnalyze(PackageURL packageUrl);
+    boolean isCapable(PackageURL packageUrl);
 
 }

@@ -31,7 +31,7 @@
     <groupId>org.dependencytrack</groupId>
     <artifactId>dependency-track</artifactId>
     <packaging>war</packaging>
-    <version>3.9.0-SNAPSHOT</version>
+    <version>4.0.0-SNAPSHOT</version>
 
     <name>Dependency-Track</name>
     <url>https://dependencytrack.org/</url>
@@ -81,19 +81,20 @@
 
     <properties>
         <!-- Dependency Versions -->
-        <frontend.version>1.0.0</frontend.version>
+        <frontend.version>1.1.0-SNAPSHOT</frontend.version>
         <lib.alpine.version>${project.parent.version}</lib.alpine.version>
         <lib.cpe-parser.version>2.0.2</lib.cpe-parser.version>
-        <lib.cvss-calculator.version>1.3.0</lib.cvss-calculator.version>
-        <lib.cyclonedx-java.version>2.7.0</lib.cyclonedx-java.version>
+        <lib.cvss-calculator.version>1.4.0</lib.cvss-calculator.version>
+        <lib.cyclonedx-java.version>3.0.7</lib.cyclonedx-java.version>
         <lib.jaxb.runtime.version>2.3.2</lib.jaxb.runtime.version>
-        <lib.lucene.version>8.4.1</lib.lucene.version>
+        <lib.lucene.version>8.7.0</lib.lucene.version>
         <lib.packageurl.version>1.1.1</lib.packageurl.version>
-        <lib.pebble.version>3.1.2</lib.pebble.version>
-        <lib.spdx-tools.version>2.1.20</lib.spdx-tools.version>
-        <lib.unirest.version>2.4.00</lib.unirest.version>
+        <lib.pebble.version>3.1.4</lib.pebble.version>
+        <lib.spdx-tools.version>2.2.4</lib.spdx-tools.version>
+        <lib.unirest.version>2.4.03</lib.unirest.version>
         <lib.vulndb-data-mirror.version>1.0.0</lib.vulndb-data-mirror.version>
         <!-- Maven Plugin Properties -->
+        <plugin.cyclonedx.projectType>application</plugin.cyclonedx.projectType>
         <plugin.github-release-plugin.version>1.4.0</plugin.github-release-plugin.version>
         <plugin.retirejs.breakOnFailure>false</plugin.retirejs.breakOnFailure>
         <!-- SonarCloud properties -->
@@ -240,19 +241,19 @@
         <dependency>
             <groupId>com.fasterxml.woodstox</groupId>
             <artifactId>woodstox-core</artifactId>
-            <version>6.1.1</version>
+            <version>6.2.3</version>
         </dependency>
         <!-- Test Dependencies -->
         <dependency>
             <groupId>org.mock-server</groupId>
             <artifactId>mockserver-netty</artifactId>
-            <version>5.9.0</version>
+            <version>5.11.2</version>
             <scope>test</scope>
         </dependency>
         <dependency>
             <groupId>org.mockito</groupId>
             <artifactId>mockito-core</artifactId>
-            <version>3.3.3</version>
+            <version>3.6.28</version>
             <scope>test</scope>
         </dependency>
     </dependencies>
@@ -281,7 +282,7 @@
         <plugins>
             <plugin>
                 <artifactId>maven-antrun-plugin</artifactId>
-                <version>1.8</version>
+                <version>3.0.0</version>
                 <executions>
                     <execution>
                         <id>frontend-download</id>
@@ -360,7 +361,7 @@
             <plugin>
                 <groupId>net.nicoulaj.maven.plugins</groupId>
                 <artifactId>checksum-maven-plugin</artifactId>
-                <version>1.8</version>
+                <version>1.9</version>
                 <executions>
                     <execution>
                         <phase>none</phase>

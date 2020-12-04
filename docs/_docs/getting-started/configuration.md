@@ -5,6 +5,8 @@ chapter: 1
 order: 5
 ---
 
+### Backend
+
 The central configuration file `application.properties` resides in the classpath of the WAR by default. 
 This configuration file controls many performance tuning parameters but is most useful for defining
 optional external database sources, directory services (LDAP), and proxy settings.
@@ -261,6 +263,7 @@ alpine.ldap.team.synchronization=false
 # alpine.http.proxy.port=8888
 # alpine.http.proxy.username=
 # alpine.http.proxy.password=
+# alpine.no.proxy=localhost,127.0.0.1
 
 # Optional
 # Cross-Origin Resource Sharing (CORS) headers to include in REST responses.
@@ -275,14 +278,66 @@ alpine.ldap.team.synchronization=false
 #alpine.cors.expose.headers=Origin, Content-Type, Authorization, X-Requested-With, Content-Length, Accept, Origin, X-Api-Key, X-Total-Count
 #alpine.cors.allow.credentials=true
 #alpine.cors.max.age=3600
+
+# Required
+# Defines if OpenID Connect will be used for user authentication.
+# If enabled, alpine.oidc.* properties should be set accordingly.
+alpine.oidc.enabled=false
+
+# Optional
+# Defines the issuer URL to be used for OpenID Connect.
+# This issuer MUST support provider configuration via the /.well-known/openid-configuration endpoint.
+# See also:
+# - https://openid.net/specs/openid-connect-discovery-1_0.html#ProviderMetadata
+# - https://openid.net/specs/openid-connect-discovery-1_0.html#ProviderConfig
+alpine.oidc.issuer=
+
+# Optional
+# Defines the name of the claim that contains the username in the provider's userinfo endpoint.
+# Common claims are "name", "username", "preferred_username" or "nickname".
+# See also: https://openid.net/specs/openid-connect-core-1_0.html#UserInfoResponse
+alpine.oidc.username.claim=name
+
+# Optional
+# Specifies if mapped OpenID Connect accounts are automatically created upon successful
+# authentication. When a user logs in with a valid access token but an account has
+# not been previously provisioned, an authentication failure will be returned.
+# This allows admins to control specifically which OpenID Connect users can access the
+# system and which users cannot. When this value is set to true, a local OpenID Connect
+# user will be created and mapped to the OpenID Connect account automatically. This
+# automatic provisioning only affects authentication, not authorization.
+alpine.oidc.user.provisioning=false
+
+# Optional
+# This option will ensure that team memberships for OpenID Connect users are dynamic and
+# synchronized with membership of OpenID Connect groups or assigned roles. When a team is
+# mapped to an OpenID Connect group, all local OpenID Connect users will automatically be
+# assigned to the team if they are a member of the group the team is mapped to. If the user
+# is later removed from the OpenID Connect group, they will also be removed from the team. This
+# option provides the ability to dynamically control user permissions via the identity provider.
+# Note that team synchronization is only performed during user provisioning and after successful
+# authentication.
+alpine.oidc.team.synchronization=false
+
+# Optional
+# Defines the name of the claim that contains group memberships or role assignments in the provider's userinfo endpoint.
+# The claim must be an array of strings. Most public identity providers do not support group or role management.
+# When using a customizable / on-demand hosted identity provider, name, content, and inclusion in the userinfo endpoint
+# will most likely need to be configured.
+alpine.oidc.teams.claim=groups
 ```
 
 #### Proxy Configuration
 
 Proxy support can be configured in one of two ways, using the proxy settings defined
 in `application.properties` or through environment variables. By default, the system
-will attempt to read the `https_proxy` and `http_proxy` environment variables. If one 
+will attempt to read the `https_proxy`, `http_proxy` and `no_proxy` environment variables. If one 
 of these are set, Dependency-Track will use them automatically.
+
+`no_proxy` specifies URLs that should be excluded from proxying.
+This can be a comma-separated list of hostnames, domain names, or a mixture of both.
+If a port number is specified for a URL, only the requests with that port number to that URL will be excluded from proxying.
+`no_proxy` can also set to be a single asterisk ('*') to match all hosts.
 
 Dependency-Track supports proxies that require BASIC, DIGEST, and NTLM authentication.
 
@@ -298,3 +353,48 @@ java -Xmx4G -DdependencyTrack.logging.level=DEBUG -jar dependency-track-embedded
 
 For Docker deployments, simply set the `LOGGING_LEVEL` environment variable to one of
 INFO, WARN, ERROR, DEBUG, or TRACE.
+
+### Frontend
+
+The frontend uses a static `config.json` file that is dynamically requested and evaluated via AJAX.
+This file resides in `<BASE_URL>/static/config.json`.
+
+#### Default configuration
+
+```json
+{
+    // Required
+    // URL of the Dependency-Track backend
+    "API_BASE_URL": "",
+    // Optional
+    // Defines the issuer URL to be used for OpenID Connect.
+    // See alpine.oidc.issuer property of the backend.
+    "OIDC_ISSUER": "",
+    // Optional
+    // Defines the client ID for OpenID Connect.
+    "OIDC_CLIENT_ID": "",
+    // Optional
+    // Defines the scopes to request for OpenID Connect.
+    // See also: https://openid.net/specs/openid-connect-basic-1_0.html#Scopes
+    "OIDC_SCOPE": "openid profile email",
+    // Optional
+    // Specifies the OpenID Connect flow to use.
+    // Values other than "implicit" will result in the Code+PKCE flow to be used.
+    // Usage of the implicit flow is strongly discouraged, but may be necessary when
+    // the IdP of choice does not support the Code+PKCE flow.
+    // See also:
+    //   - https://oauth.net/2/grant-types/implicit/
+    //   - https://oauth.net/2/pkce/
+    "OIDC_FLOW": "",
+}
+```
+
+For containerized deployments, these settings can be overridden by either:
+
+* mounting a customized `config.json` to `/app/static/config.json` inside the container
+* providing them as environment variables
+
+The names of the environment variables are equivalent to their counterparts in `config.json`.
+
+> A mounted `config.json` takes precedence over environment variables. 
+> If both are provided, environment variables will be ignored.

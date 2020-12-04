@@ -21,6 +21,7 @@ package org.dependencytrack.resources.v1;
 import alpine.auth.PermissionRequired;
 import alpine.model.LdapUser;
 import alpine.model.ManagedUser;
+import alpine.model.OidcUser;
 import alpine.model.UserPrincipal;
 import alpine.resources.AlpineResource;
 import alpine.validation.RegexSequence;
@@ -100,26 +101,9 @@ public class AnalysisResource extends AlpineResource {
                 return Response.status(Response.Status.NOT_FOUND).entity("The vulnerability could not be found.").build();
             }
 
-            Analysis analysis = qm.getAnalysis(project, component, vulnerability);
+            final Analysis analysis = qm.getAnalysis(component, vulnerability);
             return Response.ok(analysis).build();
         }
-    }
-
-    @Path("/global")
-    @PUT
-    @Consumes(MediaType.APPLICATION_JSON)
-    @Produces(MediaType.APPLICATION_JSON)
-    @ApiOperation(
-            value = "Records an analysis decision",
-            response = Analysis.class
-    )
-    @ApiResponses(value = {
-            @ApiResponse(code = 401, message = "Unauthorized"),
-            @ApiResponse(code = 404, message = "The component or vulnerability could not be found")
-    })
-    @PermissionRequired({Permissions.Constants.PORTFOLIO_MANAGEMENT, Permissions.Constants.VULNERABILITY_ANALYSIS})
-    public Response updateGlobalAnalysis(AnalysisRequest request) {
-        return performAnalysis(request, true);
     }
 
     @PUT
@@ -135,10 +119,6 @@ public class AnalysisResource extends AlpineResource {
     })
     @PermissionRequired(Permissions.Constants.VULNERABILITY_ANALYSIS)
     public Response updateAnalysis(AnalysisRequest request) {
-        return performAnalysis(request, false);
-    }
-
-    private Response performAnalysis(AnalysisRequest request, boolean global) {
         final Validator validator = getValidator();
         failOnValidationError(
                 validator.validateProperty(request, "project"),
@@ -148,11 +128,8 @@ public class AnalysisResource extends AlpineResource {
                 validator.validateProperty(request, "comment")
         );
         try (QueryManager qm = new QueryManager()) {
-            Project project = null;
-            if (!global) {
-                project = qm.getObjectByUuid(Project.class, request.getProject());
-            }
-            if (!global && project == null) {
+            final Project project = qm.getObjectByUuid(Project.class, request.getProject());
+            if (project == null) {
                 return Response.status(Response.Status.NOT_FOUND).entity("The project could not be found.").build();
             }
             final Component component = qm.getObjectByUuid(Component.class, request.getComponent());
@@ -165,28 +142,28 @@ public class AnalysisResource extends AlpineResource {
             }
 
             String commenter = null;
-            if (getPrincipal() instanceof LdapUser || getPrincipal() instanceof ManagedUser) {
+            if (getPrincipal() instanceof LdapUser || getPrincipal() instanceof ManagedUser || getPrincipal() instanceof OidcUser) {
                 commenter = ((UserPrincipal) getPrincipal()).getUsername();
             }
 
             boolean analysisStateChange = false;
             boolean suppressionChange = false;
-            Analysis analysis = qm.getAnalysis(project, component, vulnerability);
+            Analysis analysis = qm.getAnalysis(component, vulnerability);
             if (analysis != null) {
                 if (request.getAnalysisState() != null && analysis.getAnalysisState() != request.getAnalysisState()) {
                     // The analysis state has changed. Add an additional comment to the trail.
                     analysisStateChange = true;
                     final String message = analysis.getAnalysisState().name() + " → " + request.getAnalysisState().name();
                     qm.makeAnalysisComment(analysis, message, commenter);
-                    analysis = qm.makeAnalysis(project, component, vulnerability, request.getAnalysisState(), request.isSuppressed());
+                    analysis = qm.makeAnalysis(component, vulnerability, request.getAnalysisState(), request.isSuppressed());
                 } else if (request.isSuppressed() != null && analysis.isSuppressed() != request.isSuppressed()) {
                     suppressionChange = true;
                     final String message = (request.isSuppressed()) ? "Suppressed" : "Unsuppressed";
                     qm.makeAnalysisComment(analysis, message, commenter);
-                    analysis = qm.makeAnalysis(project, component, vulnerability, analysis.getAnalysisState(), request.isSuppressed());
+                    analysis = qm.makeAnalysis(component, vulnerability, analysis.getAnalysisState(), request.isSuppressed());
                 }
             } else {
-                analysis = qm.makeAnalysis(project, component, vulnerability, request.getAnalysisState(), request.isSuppressed());
+                analysis = qm.makeAnalysis(component, vulnerability, request.getAnalysisState(), request.isSuppressed());
                 analysisStateChange = true; // this is a new analysis - so set to true because it was previously null
                 if (AnalysisState.NOT_SET != request.getAnalysisState()) {
                     final String message = AnalysisState.NOT_SET.name() + " → " + request.getAnalysisState().name();

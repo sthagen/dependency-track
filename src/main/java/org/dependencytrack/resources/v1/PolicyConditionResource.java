@@ -47,7 +47,7 @@ import javax.ws.rs.core.Response;
  * JAX-RS resources for processing policies.
  *
  * @author Steve Springett
- * @since 3.9.0
+ * @since 4.0.0
  */
 @Path("/v1/policy")
 @Api(value = "policyCondition", authorizations = @Authorization(value = "X-Api-Key"))
@@ -136,7 +136,7 @@ public class PolicyConditionResource extends AlpineResource {
         try (QueryManager qm = new QueryManager()) {
             final PolicyCondition pc = qm.getObjectByUuid(PolicyCondition.class, uuid);
             if (pc != null) {
-                qm.delete(pc);
+                qm.deletePolicyCondition(pc);
                 return Response.status(Response.Status.NO_CONTENT).build();
             } else {
                 return Response.status(Response.Status.NOT_FOUND).entity("The UUID of the policy condition could not be found.").build();

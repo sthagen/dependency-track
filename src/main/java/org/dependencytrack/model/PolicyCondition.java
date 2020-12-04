@@ -39,7 +39,7 @@ import java.util.UUID;
  * Defines a Model class for defining a policy condition.
  *
  * @author Steve Springett
- * @since 3.9.0
+ * @since 4.0.0
  */
 @PersistenceCapable
 @JsonInclude(JsonInclude.Include.NON_NULL)
@@ -60,15 +60,15 @@ public class PolicyCondition implements Serializable {
     }
 
     public enum Subject {
-        AGE,
-        ANALYZER,
-        BOM,
-        COMPONENT_GROUP,
-        COMPONENT_NAME,
-        COMPONENT_VERSION,
+        //AGE,
+        //ANALYZER,
+        //BOM,
+        COORDINATES,
+        CPE,
         LICENSE,
         LICENSE_GROUP,
-        PACKAGE_URL
+        PACKAGE_URL,
+        SWID_TAGID
     }
 
     @PrimaryKey

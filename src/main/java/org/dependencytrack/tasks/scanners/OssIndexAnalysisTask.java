@@ -26,6 +26,7 @@ import alpine.model.ConfigProperty;
 import alpine.util.Pageable;
 import com.github.packageurl.MalformedPackageURLException;
 import com.github.packageurl.PackageURL;
+import kong.unirest.HttpRequestWithBody;
 import kong.unirest.HttpResponse;
 import kong.unirest.JsonNode;
 import kong.unirest.UnirestException;
@@ -60,7 +61,7 @@ import java.util.List;
  * @author Steve Springett
  * @since 3.2.0
  */
-public class OssIndexAnalysisTask extends BaseComponentAnalyzerTask implements Subscriber {
+public class OssIndexAnalysisTask extends BaseComponentAnalyzerTask implements CacheableScanTask, Subscriber {
 
     private static final String API_BASE_URL = "https://ossindex.sonatype.org/api/v3/component-report";
     private static final Logger LOGGER = Logger.getLogger(OssIndexAnalysisTask.class);
@@ -68,7 +69,11 @@ public class OssIndexAnalysisTask extends BaseComponentAnalyzerTask implements S
     private String apiToken;
 
     public OssIndexAnalysisTask() {
-        super(100, 5);
+        super(100, 0);
+    }
+
+    public AnalyzerIdentity getAnalyzerIdentity() {
+        return AnalyzerIdentity.OSSINDEX_ANALYZER;
     }
 
     /**
@@ -88,20 +93,17 @@ public class OssIndexAnalysisTask extends BaseComponentAnalyzerTask implements S
                         ConfigPropertyConstants.SCANNER_OSSINDEX_API_TOKEN.getGroupName(),
                         ConfigPropertyConstants.SCANNER_OSSINDEX_API_TOKEN.getPropertyName()
                 );
-                if (apiUsernameProperty == null || apiUsernameProperty.getPropertyValue() == null) {
-                    LOGGER.warn("An API username has not been specified for use with OSS Index. Skipping");
-                    return;
-                }
-                if (apiTokenProperty == null || apiTokenProperty.getPropertyValue() == null) {
-                    LOGGER.warn("An API Token has not been specified for use with OSS Index. Skipping");
-                    return;
-                }
-                try {
-                    apiUsername = apiUsernameProperty.getPropertyValue();
-                    apiToken = DataEncryption.decryptAsString(apiTokenProperty.getPropertyValue());
-                } catch (Exception ex) {
-                    LOGGER.error("An error occurred decrypting the OSS Index API Token. Skipping", ex);
-                    return;
+                if (apiUsernameProperty == null || apiUsernameProperty.getPropertyValue() == null
+                        || apiTokenProperty == null || apiTokenProperty.getPropertyValue() == null) {
+                    LOGGER.warn("An API username or token has not been specified for use with OSS Index. Using anonymous access");
+                } else {
+                    try {
+                        apiUsername = apiUsernameProperty.getPropertyValue();
+                        apiToken = DataEncryption.decryptAsString(apiTokenProperty.getPropertyValue());
+                    } catch (Exception ex) {
+                        LOGGER.error("An error occurred decrypting the OSS Index API Token. Skipping", ex);
+                        return;
+                    }
                 }
             }
             final OssIndexAnalysisEvent event = (OssIndexAnalysisEvent)e;
@@ -116,13 +118,32 @@ public class OssIndexAnalysisTask extends BaseComponentAnalyzerTask implements S
     }
 
     /**
-     * Determines if the {@link OssIndexAnalysisTask} is suitable for analysis based on the PackageURL.
+     * Determines if the {@link OssIndexAnalysisTask} is capable of analyzing the specified PackageURL.
      *
      * @param purl the PackageURL to analyze
      * @return true if OssIndexAnalysisTask should analyze, false if not
      */
+    public boolean isCapable(final PackageURL purl) {
+        return purl != null;
+    }
+
+    /**
+     * Determines if the {@link OssIndexAnalysisTask} should analyze the specified PackageURL.
+     *
+     * @param purl the PackageURL to analyze
+     * @return true if NpmAuditAnalysisTask should analyze, false if not
+     */
     public boolean shouldAnalyze(final PackageURL purl) {
-        return purl != null && !isCacheCurrent(Vulnerability.Source.OSSINDEX, API_BASE_URL, purl.toString());
+        return !isCacheCurrent(Vulnerability.Source.OSSINDEX, API_BASE_URL, purl.toString());
+    }
+
+    /**
+     * Analyzes the specified component from local {@link org.dependencytrack.model.ComponentAnalysisCache}.
+     *
+     * @param component component the Component to analyze from cache
+     */
+    public void applyAnalysisFromCache(final Component component) {
+        applyAnalysisFromCache(Vulnerability.Source.OSSINDEX, API_BASE_URL, component.getPurl().toString(), component, getAnalyzerIdentity());
     }
 
     /**
@@ -135,9 +156,13 @@ public class OssIndexAnalysisTask extends BaseComponentAnalyzerTask implements S
             final List<String> coordinates = new ArrayList<>();
             final List<Component> paginatedList = paginatedComponents.getPaginatedList();
             for (final Component component: paginatedList) {
-                if (!component.isInternal() && shouldAnalyze(component.getPurl())) {
-                    //coordinates.add(component.getPurl().canonicalize()); // todo: put this back when minimizePurl() is removed
-                    coordinates.add(minimizePurl(component.getPurl()));
+                if (!component.isInternal() && isCapable(component.getPurl())) {
+                    if (!isCacheCurrent(Vulnerability.Source.OSSINDEX, API_BASE_URL, component.getPurl().toString())) {
+                        //coordinates.add(component.getPurl().canonicalize()); // todo: put this back when minimizePurl() is removed
+                        coordinates.add(minimizePurl(component.getPurl()));
+                    } else {
+                        applyAnalysisFromCache(Vulnerability.Source.OSSINDEX, API_BASE_URL, component.getPurl().toString(), component, getAnalyzerIdentity());
+                    }
                 }
             }
             if (CollectionUtils.isEmpty(coordinates)) {
@@ -168,6 +193,9 @@ public class OssIndexAnalysisTask extends BaseComponentAnalyzerTask implements S
      */
     @Deprecated
     private static String minimizePurl(final PackageURL purl) {
+        if (purl == null) {
+            return null;
+        }
         String p = purl.canonicalize();
         if (p.contains("?")) {
             p = p.substring(0, p.lastIndexOf("?"));
@@ -183,13 +211,14 @@ public class OssIndexAnalysisTask extends BaseComponentAnalyzerTask implements S
      */
     private List<ComponentReport> submit(final JSONObject payload) throws UnirestException {
         final UnirestInstance ui = UnirestFactory.getUnirestInstance();
-        final HttpResponse<JsonNode> jsonResponse = ui.post(API_BASE_URL)
+        final HttpRequestWithBody request = ui.post(API_BASE_URL)
                 .header(HttpHeaders.ACCEPT, "application/json")
                 .header(HttpHeaders.CONTENT_TYPE, "application/json")
-                .header(HttpHeaders.USER_AGENT, ManagedHttpClientFactory.getUserAgent())
-                .basicAuth(apiUsername, apiToken)
-                .body(payload)
-                .asJson();
+                .header(HttpHeaders.USER_AGENT, ManagedHttpClientFactory.getUserAgent());
+        if (apiUsername != null && apiToken != null) {
+            request.basicAuth(apiUsername, apiToken);
+        }
+        final HttpResponse<JsonNode> jsonResponse = request.body(payload).asJson();
         if (jsonResponse.getStatus() == 200) {
             final OssIndexParser parser = new OssIndexParser();
             return parser.parse(jsonResponse.getBody());
@@ -202,22 +231,25 @@ public class OssIndexAnalysisTask extends BaseComponentAnalyzerTask implements S
     private void processResults(final List<ComponentReport> report, final List<Component> componentsScanned) {
         try (QueryManager qm = new QueryManager()) {
             for (final ComponentReport componentReport: report) {
-                for (final Component component: componentsScanned) {
+                for (final Component c: componentsScanned) {
                     //final String componentPurl = component.getPurl().canonicalize(); // todo: put this back when minimizePurl() is removed
-                    final String componentPurl = minimizePurl(component.getPurl());
+                    final String componentPurl = minimizePurl(c.getPurl());
                     final PackageURL sonatypePurl = oldPurlResolver(componentReport.getCoordinates());
+                    final String minimalSonatypePurl = minimizePurl(sonatypePurl);
                     if (componentPurl.equals(componentReport.getCoordinates()) ||
-                            (sonatypePurl != null && componentPurl.equals(sonatypePurl.canonicalize()))) {
+                            (sonatypePurl != null && componentPurl.equals(minimalSonatypePurl))) {
                         /*
                         Found the component
                          */
+                        final Component component = qm.getObjectById(Component.class, c.getId()); // Refresh component and attach to current pm.
                         for (final ComponentReportVulnerability reportedVuln: componentReport.getVulnerabilities()) {
                             if (reportedVuln.getCve() != null) {
                                 Vulnerability vulnerability = qm.getVulnerabilityByVulnId(
                                         Vulnerability.Source.NVD, reportedVuln.getCve());
                                 if (vulnerability != null) {
-                                    NotificationUtil.analyzeNotificationCriteria(vulnerability, component);
-                                    qm.addVulnerability(vulnerability, component);
+                                    NotificationUtil.analyzeNotificationCriteria(qm, vulnerability, component);
+                                    qm.addVulnerability(vulnerability, component, this.getAnalyzerIdentity(), reportedVuln.getId(), reportedVuln.getReference());
+                                    addVulnerabilityToCache(component, vulnerability);
                                 } else {
                                     /*
                                     The vulnerability reported by OSS Index is not in Dependency-Track yet. This could be
@@ -225,8 +257,9 @@ public class OssIndexAnalysisTask extends BaseComponentAnalyzerTask implements S
                                     through traditional feeds. Regardless, the vuln needs to be added to the database.
                                      */
                                     vulnerability = qm.createVulnerability(generateVulnerability(qm, reportedVuln), false);
-                                    NotificationUtil.analyzeNotificationCriteria(vulnerability, component);
-                                    qm.addVulnerability(vulnerability, component);
+                                    NotificationUtil.analyzeNotificationCriteria(qm, vulnerability, component);
+                                    qm.addVulnerability(vulnerability, component, this.getAnalyzerIdentity(), reportedVuln.getId(), reportedVuln.getReference());
+                                    addVulnerabilityToCache(component, vulnerability);
                                 }
                             } else {
                                 /*
@@ -236,13 +269,14 @@ public class OssIndexAnalysisTask extends BaseComponentAnalyzerTask implements S
                                 if (vulnerability == null) {
                                     vulnerability = qm.createVulnerability(generateVulnerability(qm, reportedVuln), false);
                                 }
-                                NotificationUtil.analyzeNotificationCriteria(vulnerability, component);
-                                qm.addVulnerability(vulnerability, component);
+                                NotificationUtil.analyzeNotificationCriteria(qm, vulnerability, component);
+                                qm.addVulnerability(vulnerability, component, this.getAnalyzerIdentity(), reportedVuln.getId(), reportedVuln.getReference());
+                                addVulnerabilityToCache(component, vulnerability);
                             }
                         }
                         Event.dispatch(new MetricsUpdateEvent(component));
+                        updateAnalysisCacheStats(qm, Vulnerability.Source.OSSINDEX, API_BASE_URL, component.getPurl().toString(), component.getCacheResult());
                     }
-                    updateAnalysisCacheStats(qm, Vulnerability.Source.OSSINDEX, API_BASE_URL, component.getPurl().toString());
                 }
             }
         }

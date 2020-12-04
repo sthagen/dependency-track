@@ -46,7 +46,7 @@ import java.util.UUID;
  * Defines a Model class for defining a policy.
  *
  * @author Steve Springett
- * @since 3.9.0
+ * @since 4.0.0
  */
 @PersistenceCapable
 @JsonInclude(JsonInclude.Include.NON_NULL)
@@ -178,6 +178,10 @@ public class Policy implements Serializable {
 
     public void setProjects(List<Project> projects) {
         this.projects = projects;
+    }
+
+    public boolean isGlobal() {
+        return (projects == null || projects.size() == 0);
     }
 
     public UUID getUuid() {

@@ -59,7 +59,9 @@ public abstract class ResourceTest extends JerseyTest {
     protected final String V1_METRICS = "/v1/metrics";
     protected final String V1_NOTIFICATION_PUBLISHER = "/v1/notification/publisher";
     protected final String V1_NOTIFICATION_RULE = "/v1/notification/rule";
+    protected final String V1_OIDC = "/v1/oidc";
     protected final String V1_PERMISSION = "/v1/permission";
+    protected final String V1_POLICY = "/v1/policy";
     protected final String V1_PROJECT = "/v1/project";
     protected final String V1_REPOSITORY = "/v1/repository";
     protected final String V1_SCAN = "/v1/scan";

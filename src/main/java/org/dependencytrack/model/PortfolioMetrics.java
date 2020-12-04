@@ -89,14 +89,6 @@ public class PortfolioMetrics implements Serializable {
     private int vulnerableComponents;
 
     @Persistent
-    @Column(name = "DEPENDENCIES", allowsNull = "true") // New column, must allow nulls on existing databases
-    private Integer dependencies;
-
-    @Persistent
-    @Column(name = "VULNERABLEDEPENDENCIES", allowsNull = "true") // New column, must allow nulls on existing databases
-    private Integer vulnerableDependencies;
-
-    @Persistent
     @Column(name = "SUPPRESSED")
     private int suppressed;
 
@@ -115,6 +107,66 @@ public class PortfolioMetrics implements Serializable {
     @Persistent
     @Column(name = "RISKSCORE")
     private double inheritedRiskScore;
+
+    @Persistent
+    @Column(name = "POLICYVIOLATIONS_FAIL", allowsNull = "true") // New column, must allow nulls on existing data bases)
+    private Integer policyViolationsFail;
+
+    @Persistent
+    @Column(name = "POLICYVIOLATIONS_WARN", allowsNull = "true") // New column, must allow nulls on existing data bases)
+    private Integer policyViolationsWarn;
+
+    @Persistent
+    @Column(name = "POLICYVIOLATIONS_INFO", allowsNull = "true") // New column, must allow nulls on existing data bases)
+    private Integer policyViolationsInfo;
+
+    @Persistent
+    @Column(name = "POLICYVIOLATIONS_TOTAL", allowsNull = "true") // New column, must allow nulls on existing data bases)
+    private Integer policyViolationsTotal;
+
+    @Persistent
+    @Column(name = "POLICYVIOLATIONS_AUDITED", allowsNull = "true") // New column, must allow nulls on existing databases)
+    private Integer policyViolationsAudited;
+
+    @Persistent
+    @Column(name = "POLICYVIOLATIONS_UNAUDITED", allowsNull = "true") // New column, must allow nulls on existing databases)
+    private Integer policyViolationsUnaudited;
+
+    @Persistent
+    @Column(name = "POLICYVIOLATIONS_SECURITY_TOTAL", allowsNull = "true") // New column, must allow nulls on existing data bases)
+    private Integer policyViolationsSecurityTotal;
+
+    @Persistent
+    @Column(name = "POLICYVIOLATIONS_SECURITY_AUDITED", allowsNull = "true") // New column, must allow nulls on existing data bases)
+    private Integer policyViolationsSecurityAudited;
+
+    @Persistent
+    @Column(name = "POLICYVIOLATIONS_SECURITY_UNAUDITED", allowsNull = "true") // New column, must allow nulls on existing data bases)
+    private Integer policyViolationsSecurityUnaudited;
+
+    @Persistent
+    @Column(name = "POLICYVIOLATIONS_LICENSE_TOTAL", allowsNull = "true") // New column, must allow nulls on existing data bases)
+    private Integer policyViolationsLicenseTotal;
+
+    @Persistent
+    @Column(name = "POLICYVIOLATIONS_LICENSE_AUDITED", allowsNull = "true") // New column, must allow nulls on existing data bases)
+    private Integer policyViolationsLicenseAudited;
+
+    @Persistent
+    @Column(name = "POLICYVIOLATIONS_LICENSE_UNAUDITED", allowsNull = "true") // New column, must allow nulls on existing data bases)
+    private Integer policyViolationsLicenseUnaudited;
+
+    @Persistent
+    @Column(name = "POLICYVIOLATIONS_OPERATIONAL_TOTAL", allowsNull = "true") // New column, must allow nulls on existing data bases)
+    private Integer policyViolationsOperationalTotal;
+
+    @Persistent
+    @Column(name = "POLICYVIOLATIONS_OPERATIONAL_AUDITED", allowsNull = "true") // New column, must allow nulls on existing data bases)
+    private Integer policyViolationsOperationalAudited;
+
+    @Persistent
+    @Column(name = "POLICYVIOLATIONS_OPERATIONAL_UNAUDITED", allowsNull = "true") // New column, must allow nulls on existing data bases)
+    private Integer policyViolationsOperationalUnaudited;
 
     @Persistent
     @Column(name = "FIRST_OCCURRENCE", allowsNull = "false")
@@ -216,22 +268,6 @@ public class PortfolioMetrics implements Serializable {
         this.vulnerableComponents = vulnerableComponents;
     }
 
-    public int getDependencies() {
-        return dependencies;
-    }
-
-    public void setDependencies(int dependencies) {
-        this.dependencies = dependencies;
-    }
-
-    public int getVulnerableDependencies() {
-        return vulnerableDependencies;
-    }
-
-    public void setVulnerableDependencies(int vulnerableDependencies) {
-        this.vulnerableDependencies = vulnerableDependencies;
-    }
-
     public int getSuppressed() {
         return suppressed;
     }
@@ -270,6 +306,126 @@ public class PortfolioMetrics implements Serializable {
 
     public void setInheritedRiskScore(double inheritedRiskScore) {
         this.inheritedRiskScore = inheritedRiskScore;
+    }
+
+    public int getPolicyViolationsFail() {
+        return policyViolationsFail;
+    }
+
+    public void setPolicyViolationsFail(int policyViolationsFail) {
+        this.policyViolationsFail = policyViolationsFail;
+    }
+
+    public int getPolicyViolationsWarn() {
+        return policyViolationsWarn;
+    }
+
+    public void setPolicyViolationsWarn(int policyViolationsWarn) {
+        this.policyViolationsWarn = policyViolationsWarn;
+    }
+
+    public int getPolicyViolationsInfo() {
+        return policyViolationsInfo;
+    }
+
+    public void setPolicyViolationsInfo(int policyViolationsInfo) {
+        this.policyViolationsInfo = policyViolationsInfo;
+    }
+
+    public int getPolicyViolationsTotal() {
+        return policyViolationsTotal;
+    }
+
+    public void setPolicyViolationsTotal(int policyViolationsTotal) {
+        this.policyViolationsTotal = policyViolationsTotal;
+    }
+
+    public int getPolicyViolationsAudited() {
+        return policyViolationsAudited;
+    }
+
+    public void setPolicyViolationsAudited(int policyViolationsAudited) {
+        this.policyViolationsAudited = policyViolationsAudited;
+    }
+
+    public int getPolicyViolationsUnaudited() {
+        return policyViolationsUnaudited;
+    }
+
+    public void setPolicyViolationsUnaudited(int policyViolationsUnaudited) {
+        this.policyViolationsUnaudited = policyViolationsUnaudited;
+    }
+
+    public int getPolicyViolationsSecurityTotal() {
+        return policyViolationsSecurityTotal;
+    }
+
+    public void setPolicyViolationsSecurityTotal(int policyViolationsSecurityTotal) {
+        this.policyViolationsSecurityTotal = policyViolationsSecurityTotal;
+    }
+
+    public int getPolicyViolationsSecurityAudited() {
+        return policyViolationsSecurityAudited;
+    }
+
+    public void setPolicyViolationsSecurityAudited(int policyViolationsSecurityAudited) {
+        this.policyViolationsSecurityAudited = policyViolationsSecurityAudited;
+    }
+
+    public int getPolicyViolationsSecurityUnaudited() {
+        return policyViolationsSecurityUnaudited;
+    }
+
+    public void setPolicyViolationsSecurityUnaudited(int policyViolationsSecurityUnaudited) {
+        this.policyViolationsSecurityUnaudited = policyViolationsSecurityUnaudited;
+    }
+
+    public int getPolicyViolationsLicenseTotal() {
+        return policyViolationsLicenseTotal;
+    }
+
+    public void setPolicyViolationsLicenseTotal(int policyViolationsLicenseTotal) {
+        this.policyViolationsLicenseTotal = policyViolationsLicenseTotal;
+    }
+
+    public int getPolicyViolationsLicenseAudited() {
+        return policyViolationsLicenseAudited;
+    }
+
+    public void setPolicyViolationsLicenseAudited(int policyViolationsLicenseAudited) {
+        this.policyViolationsLicenseAudited = policyViolationsLicenseAudited;
+    }
+
+    public int getPolicyViolationsLicenseUnaudited() {
+        return policyViolationsLicenseUnaudited;
+    }
+
+    public void setPolicyViolationsLicenseUnaudited(int policyViolationsLicenseUnaudited) {
+        this.policyViolationsLicenseUnaudited = policyViolationsLicenseUnaudited;
+    }
+
+    public int getPolicyViolationsOperationalTotal() {
+        return policyViolationsOperationalTotal;
+    }
+
+    public void setPolicyViolationsOperationalTotal(int policyViolationsOperationalTotal) {
+        this.policyViolationsOperationalTotal = policyViolationsOperationalTotal;
+    }
+
+    public int getPolicyViolationsOperationalAudited() {
+        return policyViolationsOperationalAudited;
+    }
+
+    public void setPolicyViolationsOperationalAudited(int policyViolationsOperationalAudited) {
+        this.policyViolationsOperationalAudited = policyViolationsOperationalAudited;
+    }
+
+    public int getPolicyViolationsOperationalUnaudited() {
+        return policyViolationsOperationalUnaudited;
+    }
+
+    public void setPolicyViolationsOperationalUnaudited(int policyViolationsOperationalUnaudited) {
+        this.policyViolationsOperationalUnaudited = policyViolationsOperationalUnaudited;
     }
 
     public Date getFirstOccurrence() {

@@ -19,8 +19,9 @@ enabled by default but is necessary to scan dependencies represented by
 
 #### Why is Sonatype OSS Index Analyzer disabled by default?
 
-Sonatype OSS Index Analyzer is disabled because you need an account and need to configure it first. See
-[Sonatype OSS Index Analyzer](./../datasources/ossindex/).
+For Dependency-Track v3.0 - v3.8, Sonatype OSS Index Analyzer is disabled and requires an account. See
+[Sonatype OSS Index Analyzer](./../datasources/ossindex/). For Dependency-Track v4.0 and higher, OSS Index is enabled
+by default and does not require an account.
 
 #### I have just enabled OSS Index Analyzer but still don't see results
 
@@ -49,6 +50,14 @@ was dropped. A comparison can be found in the [Dependency Check Comparison](./..
 Make sure the container is allowed to allocate enough RAM. For memory requirements see
 [Deploying Docker Container](./../getting-started/deploy-docker/). A common source for limited memory is Docker for
 Windows's default memory limit of 2GB which is too less. You can change this in docker's settings.
+
+#### Dependency Track stops working after 1-2 weeks
+
+This might happen if your OS cleans-up temp storage without checking for open files.
+This has been observed with Windows and CentOS.
+Deleting temporary files is a problem for the embedded Jetty server used by Dependency Track.
+When launching Dependency Track, try adding `-Djava.io.tmpdir=/path/to/tmpdir` to the command and specify an
+alternative path to where you want DT temp files to reside.
 
 #### Why is there a delay with LDAP synchronization?
 

@@ -44,37 +44,42 @@ public class Finding implements Serializable {
      * on ANSI_QUOTES mode being enabled in MySQL. SQL Server works regardless and is just happy to be invited :-)
      */
     public static final String QUERY = "SELECT " +
-            "\"COMPONENT\".\"UUID\" AS \"COMPONENT_UUID\", " +
-            "\"COMPONENT\".\"NAME\" AS \"COMPONENT_NAME\", " +
-            "\"COMPONENT\".\"GROUP\" AS \"COMPONENT_GROUP\", " +
-            "\"COMPONENT\".\"VERSION\" AS \"COMPONENT_VERSION\", " +
-            "\"COMPONENT\".\"PURL\" AS \"COMPONENT_PURL\", " +
-            "\"VULNERABILITY\".\"UUID\" AS \"VULN_UUID\", " +
-            "\"VULNERABILITY\".\"SOURCE\" AS \"VULN_SOURCE\", " +
-            "\"VULNERABILITY\".\"VULNID\" AS \"VULN_ID\", " +
-            "\"VULNERABILITY\".\"TITLE\" AS \"VULN_TITLE\", " +
-            "\"VULNERABILITY\".\"SUBTITLE\" AS \"VULN_SUBTITLE\", " +
-            "\"VULNERABILITY\".\"DESCRIPTION\" AS \"VULN_DESCRIPTION\", " +
-            "\"VULNERABILITY\".\"RECOMMENDATION\" AS \"VULN_RECOMMENDATION\", " +
-            "\"VULNERABILITY\".\"SEVERITY\" AS \"VULN_SEVERITY\", " +
-            "\"VULNERABILITY\".\"CVSSV2BASESCORE\" AS \"VULN_CVSSV2BASESCORE\", " +
-            "\"VULNERABILITY\".\"CVSSV3BASESCORE\" AS \"VULN_CVSSV3BASESCORE\", " +
-            "\"CWE\".\"CWEID\" AS \"CWE_ID\", " +
-            "\"CWE\".\"NAME\" AS \"CWE_NAME\", " +
-            "\"ANALYSIS\".\"STATE\" AS \"ANALYSIS_STATE\", " +
-            "\"ANALYSIS\".\"SUPPRESSED\" AS \"ANALYSIS_SUPPRESSED\" " +
+            "\"COMPONENT\".\"UUID\"," +
+            "\"COMPONENT\".\"NAME\"," +
+            "\"COMPONENT\".\"GROUP\"," +
+            "\"COMPONENT\".\"VERSION\"," +
+            "\"COMPONENT\".\"PURL\"," +
+            "\"VULNERABILITY\".\"UUID\"," +
+            "\"VULNERABILITY\".\"SOURCE\"," +
+            "\"VULNERABILITY\".\"VULNID\"," +
+            "\"VULNERABILITY\".\"TITLE\"," +
+            "\"VULNERABILITY\".\"SUBTITLE\"," +
+            "\"VULNERABILITY\".\"DESCRIPTION\"," +
+            "\"VULNERABILITY\".\"RECOMMENDATION\"," +
+            "\"VULNERABILITY\".\"SEVERITY\"," +
+            "\"VULNERABILITY\".\"CVSSV2BASESCORE\"," +
+            "\"VULNERABILITY\".\"CVSSV3BASESCORE\"," +
+            "\"FINDINGATTRIBUTION\".\"ANALYZERIDENTITY\"," +
+            "\"FINDINGATTRIBUTION\".\"ATTRIBUTED_ON\"," +
+            "\"FINDINGATTRIBUTION\".\"ALT_ID\"," +
+            "\"FINDINGATTRIBUTION\".\"REFERENCE_URL\"," +
+            "\"CWE\".\"CWEID\"," +
+            "\"CWE\".\"NAME\"," +
+            "\"ANALYSIS\".\"STATE\"," +
+            "\"ANALYSIS\".\"SUPPRESSED\" " +
             "FROM \"COMPONENT\" " +
-            "INNER JOIN \"DEPENDENCY\" ON (\"COMPONENT\".\"ID\" = \"DEPENDENCY\".\"COMPONENT_ID\") " +
-            "INNER JOIN \"COMPONENTS_VULNERABILITIES\" ON (\"DEPENDENCY\".\"COMPONENT_ID\" = \"COMPONENTS_VULNERABILITIES\".\"COMPONENT_ID\") " +
+            "INNER JOIN \"COMPONENTS_VULNERABILITIES\" ON (\"COMPONENT\".\"ID\" = \"COMPONENTS_VULNERABILITIES\".\"COMPONENT_ID\") " +
             "INNER JOIN \"VULNERABILITY\" ON (\"COMPONENTS_VULNERABILITIES\".\"VULNERABILITY_ID\" = \"VULNERABILITY\".\"ID\") " +
+            "INNER JOIN \"FINDINGATTRIBUTION\" ON (\"COMPONENT\".\"ID\" = \"FINDINGATTRIBUTION\".\"COMPONENT_ID\") AND (\"VULNERABILITY\".\"ID\" = \"FINDINGATTRIBUTION\".\"VULNERABILITY_ID\")" +
             "LEFT JOIN \"CWE\"  ON (\"VULNERABILITY\".\"CWE\" = \"CWE\".\"ID\") " +
-            "LEFT JOIN \"ANALYSIS\" ON (\"COMPONENT\".\"ID\" = \"ANALYSIS\".\"COMPONENT_ID\") AND (\"VULNERABILITY\".\"ID\" = \"ANALYSIS\".\"VULNERABILITY_ID\") AND (\"DEPENDENCY\".\"PROJECT_ID\" = \"ANALYSIS\".\"PROJECT_ID\") " +
-            "WHERE \"DEPENDENCY\".\"PROJECT_ID\" = ?";
+            "LEFT JOIN \"ANALYSIS\" ON (\"COMPONENT\".\"ID\" = \"ANALYSIS\".\"COMPONENT_ID\") AND (\"VULNERABILITY\".\"ID\" = \"ANALYSIS\".\"VULNERABILITY_ID\") AND (\"COMPONENT\".\"PROJECT_ID\" = \"ANALYSIS\".\"PROJECT_ID\") " +
+            "WHERE \"COMPONENT\".\"PROJECT_ID\" = ?";
 
     private UUID project;
     private Map<String, Object> component = new LinkedHashMap<>();
     private Map<String, Object> vulnerability = new LinkedHashMap<>();
     private Map<String, Object> analysis = new LinkedHashMap<>();
+    private Map<String, Object> attribution = new LinkedHashMap<>();
 
     /**
      * Constructs a new Finding object. The generic Object array passed as an argument is the
@@ -89,6 +94,7 @@ public class Finding implements Serializable {
         optValue(component, "group", o[2]);
         optValue(component, "version", o[3]);
         optValue(component, "purl", o[4]);
+        optValue(component, "project", project.toString());
 
         optValue(vulnerability, "uuid", o[5]);
         optValue(vulnerability, "source", o[6]);
@@ -100,11 +106,15 @@ public class Finding implements Serializable {
         final Severity severity = VulnerabilityUtil.getSeverity(o[12], o[13], o[14]);
         optValue(vulnerability, "severity", severity.name());
         optValue(vulnerability, "severityRank", severity.ordinal());
-        optValue(vulnerability, "cweId", o[15]);
-        optValue(vulnerability, "cweName", o[16]);
+        optValue(attribution, "analyzerIdentity", o[15]);
+        optValue(attribution, "attributedOn", o[16]);
+        optValue(attribution, "alternateIdentifier", o[17]);
+        optValue(attribution, "referenceUrl", o[18]);
+        optValue(vulnerability, "cweId", o[19]);
+        optValue(vulnerability, "cweName", o[20]);
 
-        optValue(analysis, "state", o[17]);
-        optValue(analysis, "isSuppressed", o[18], false);
+        optValue(analysis, "state", o[21]);
+        optValue(analysis, "isSuppressed", o[22], false);
     }
 
     public Map getComponent() {
@@ -117,6 +127,10 @@ public class Finding implements Serializable {
 
     public Map getAnalysis() {
         return analysis;
+    }
+
+    public Map getAttribution() {
+        return attribution;
     }
 
     private void optValue(Map<String, Object> map, String key, Object value, boolean defaultValue) {

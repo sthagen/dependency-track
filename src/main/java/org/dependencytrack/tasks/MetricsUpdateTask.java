@@ -22,15 +22,12 @@ import alpine.event.framework.Event;
 import alpine.event.framework.Subscriber;
 import alpine.logging.Logger;
 import alpine.persistence.PaginatedResult;
-import alpine.resources.AlpineRequest;
-import alpine.resources.OrderDirection;
-import alpine.resources.Pagination;
 import org.dependencytrack.event.MetricsUpdateEvent;
 import org.dependencytrack.metrics.Metrics;
 import org.dependencytrack.model.Component;
-import org.dependencytrack.model.ComponentMetrics;
-import org.dependencytrack.model.Dependency;
 import org.dependencytrack.model.DependencyMetrics;
+import org.dependencytrack.model.Policy;
+import org.dependencytrack.model.PolicyViolation;
 import org.dependencytrack.model.PortfolioMetrics;
 import org.dependencytrack.model.Project;
 import org.dependencytrack.model.ProjectMetrics;
@@ -71,8 +68,6 @@ public class MetricsUpdateTask implements Subscriber {
                     updateProjectMetrics(qm, ((Project) event.getTarget()).getId());
                 } else if (event.getTarget() instanceof Component) {
                     updateComponentMetrics(qm, ((Component) event.getTarget()).getId());
-                } else if (event.getTarget() instanceof Dependency) {
-                    updateDependencyMetrics(qm, ((Dependency) event.getTarget()).getId());
                 } else if (MetricsUpdateEvent.Type.VULNERABILITY == event.getType()) {
                     updateVulnerabilitiesMetrics(qm);
                 }
@@ -91,20 +86,24 @@ public class MetricsUpdateTask implements Subscriber {
         LOGGER.info("Executing portfolio metrics update");
         final Date measuredAt = new Date();
 
-        // Retrieve list of all projects
-        final List<Project> projects = qm.getAllProjects();
-        LOGGER.debug("Portfolio metrics will include " + projects.size() + " projects");
+        // Retrieve list of all ACTIVE projects
+        final List<Project> projects = qm.getAllProjects(true);
+        LOGGER.debug("Portfolio metrics will include " + projects.size() + " active projects");
 
         // Setup metrics
         final MetricCounters portfolioCounters = new MetricCounters();
         final List<MetricCounters> projectCountersList = new ArrayList<>();
 
         // Iterate through all projects
-        LOGGER.debug("Iterating through projects");
+        LOGGER.debug("Iterating through active projects");
         for (final Project project: projects) {
-            // Update the projects metrics
-            final MetricCounters projectMetrics = updateProjectMetrics(qm, project.getId());
-            projectCountersList.add(projectMetrics);
+            try {
+                // Update the projects metrics
+                final MetricCounters projectMetrics = updateProjectMetrics(qm, project.getId());
+                projectCountersList.add(projectMetrics);
+            } catch (Exception e) {
+                LOGGER.error("An unexpected error occurred while updating portfolio metrics and iterating through projects. The error occurred while updating metrics for project: " + project.getUuid().toString(), e);
+            }
         }
 
         LOGGER.debug("Project iteration complete. Iterating through all project metrics");
@@ -121,46 +120,30 @@ public class MetricsUpdateTask implements Subscriber {
             // All vulnerabilities
             portfolioCounters.vulnerabilities += projectMetrics.severitySum();
 
-            // All dependant components
-            portfolioCounters.dependencies += projectMetrics.dependencies;
-
-            // Only vulnerable components
-            portfolioCounters.vulnerableDependencies += projectMetrics.vulnerableDependencies;
-
             // Only vulnerable projects
             if (projectMetrics.severitySum() > 0) {
                 portfolioCounters.vulnerableProjects++;
             }
+            portfolioCounters.policyViolationsFail += projectMetrics.policyViolationsFail;
+            portfolioCounters.policyViolationsWarn += projectMetrics.policyViolationsWarn;
+            portfolioCounters.policyViolationsInfo += projectMetrics.policyViolationsInfo;
+            portfolioCounters.policyViolationsTotal += projectMetrics.policyViolationsTotal;
+            portfolioCounters.policyViolationsAudited += projectMetrics.policyViolationsAudited;
+            portfolioCounters.policyViolationsUnaudited += projectMetrics.policyViolationsUnaudited;
+            portfolioCounters.policyViolationsSecurityTotal += projectMetrics.policyViolationsSecurityTotal;
+            portfolioCounters.policyViolationsSecurityAudited += projectMetrics.policyViolationsSecurityAudited;
+            portfolioCounters.policyViolationsSecurityUnaudited += projectMetrics.policyViolationsSecurityUnaudited;
+            portfolioCounters.policyViolationsLicenseTotal += projectMetrics.policyViolationsLicenseTotal;
+            portfolioCounters.policyViolationsLicenseAudited += projectMetrics.policyViolationsLicenseAudited;
+            portfolioCounters.policyViolationsLicenseUnaudited += projectMetrics.policyViolationsLicenseUnaudited;
+            portfolioCounters.policyViolationsOperationalTotal += projectMetrics.policyViolationsOperationalTotal;
+            portfolioCounters.policyViolationsOperationalAudited += projectMetrics.policyViolationsOperationalAudited;
+            portfolioCounters.policyViolationsOperationalUnaudited += projectMetrics.policyViolationsOperationalUnaudited;
         }
         LOGGER.debug("Project metric iteration complete");
         LOGGER.debug("Retrieving total suppression count for portfolio");
         // Total number of suppressions regardless if they are dependencies or components not associated to a project
         portfolioCounters.suppressions = toIntExact(qm.getSuppressedCount());
-
-        // There will be a high probability of having a large number of components. Setup paging.
-        final AlpineRequest alpineRequest = new AlpineRequest(
-                null, new Pagination(Pagination.Strategy.OFFSET, 0, 1000), null, "id", OrderDirection.ASCENDING
-        );
-        // Page through a list of components (these are global component objects - not dependencies)
-        try (QueryManager qm2 = new QueryManager(alpineRequest)) {
-            final long total = qm2.getCount(Component.class);
-            LOGGER.debug("Retrieving and paginating through all components. " + total + " total");
-            long count = 0;
-            while (count < total) {
-                final PaginatedResult result = qm2.getComponents();
-                portfolioCounters.components = toIntExact(result.getTotal());
-                LOGGER.debug("Processing " + result.getObjects().size() + " components");
-                for (final Component component: result.getList(Component.class)) {
-                    final MetricCounters componentMetrics = updateComponentMetrics(qm2, component.getId());
-                    // Only vulnerable components
-                    if (componentMetrics.severitySum() > 0) {
-                        portfolioCounters.vulnerableComponents++;
-                    }
-                }
-                count += result.getObjects().size();
-                qm2.advancePagination();
-            }
-        }
 
         // For the time being finding and vulnerability counts are the same.
         // However, vulns may be defined as 'confirmed' in a future release.
@@ -178,10 +161,23 @@ public class MetricsUpdateTask implements Subscriber {
                 && last.getUnassigned() == portfolioCounters.unassigned
                 && last.getVulnerabilities() == portfolioCounters.vulnerabilities
                 && last.getInheritedRiskScore() == portfolioCounters.getInheritedRiskScore()
+                && last.getPolicyViolationsFail() == portfolioCounters.policyViolationsFail
+                && last.getPolicyViolationsWarn() == portfolioCounters.policyViolationsWarn
+                && last.getPolicyViolationsInfo() == portfolioCounters.policyViolationsInfo
+                && last.getPolicyViolationsTotal() == portfolioCounters.policyViolationsTotal
+                && last.getPolicyViolationsAudited() == portfolioCounters.policyViolationsAudited
+                && last.getPolicyViolationsUnaudited() == portfolioCounters.policyViolationsUnaudited
+                && last.getPolicyViolationsSecurityTotal() == portfolioCounters.policyViolationsSecurityTotal
+                && last.getPolicyViolationsSecurityAudited() == portfolioCounters.policyViolationsSecurityAudited
+                && last.getPolicyViolationsSecurityUnaudited() == portfolioCounters.policyViolationsSecurityUnaudited
+                && last.getPolicyViolationsLicenseTotal() == portfolioCounters.policyViolationsLicenseTotal
+                && last.getPolicyViolationsLicenseAudited() == portfolioCounters.policyViolationsLicenseAudited
+                && last.getPolicyViolationsLicenseUnaudited() == portfolioCounters.policyViolationsLicenseUnaudited
+                && last.getPolicyViolationsOperationalTotal() == portfolioCounters.policyViolationsOperationalTotal
+                && last.getPolicyViolationsOperationalAudited() == portfolioCounters.policyViolationsOperationalAudited
+                && last.getPolicyViolationsOperationalUnaudited() == portfolioCounters.policyViolationsOperationalUnaudited
                 && last.getComponents() == portfolioCounters.components
                 && last.getVulnerableComponents() == portfolioCounters.vulnerableComponents
-                && last.getDependencies() == portfolioCounters.dependencies
-                && last.getVulnerableDependencies() == portfolioCounters.vulnerableDependencies
                 && last.getSuppressed() == portfolioCounters.suppressions
                 && last.getFindingsTotal() == portfolioCounters.findingsTotal
                 && last.getFindingsAudited() == portfolioCounters.findingsAudited
@@ -205,8 +201,6 @@ public class MetricsUpdateTask implements Subscriber {
             portfolioMetrics.setVulnerabilities(portfolioCounters.vulnerabilities);
             portfolioMetrics.setComponents(portfolioCounters.components);
             portfolioMetrics.setVulnerableComponents(portfolioCounters.vulnerableComponents);
-            portfolioMetrics.setDependencies(portfolioCounters.dependencies);
-            portfolioMetrics.setVulnerableDependencies(portfolioCounters.vulnerableDependencies);
             portfolioMetrics.setSuppressed(portfolioCounters.suppressions);
             portfolioMetrics.setFindingsTotal(portfolioCounters.findingsTotal);
             portfolioMetrics.setFindingsAudited(portfolioCounters.findingsAudited);
@@ -221,6 +215,21 @@ public class MetricsUpdateTask implements Subscriber {
                             portfolioCounters.low,
                             portfolioCounters.unassigned)
             );
+            portfolioMetrics.setPolicyViolationsFail(portfolioCounters.policyViolationsFail);
+            portfolioMetrics.setPolicyViolationsWarn(portfolioCounters.policyViolationsWarn);
+            portfolioMetrics.setPolicyViolationsInfo(portfolioCounters.policyViolationsInfo);
+            portfolioMetrics.setPolicyViolationsTotal(portfolioCounters.policyViolationsTotal);
+            portfolioMetrics.setPolicyViolationsAudited(portfolioCounters.policyViolationsAudited);
+            portfolioMetrics.setPolicyViolationsUnaudited(portfolioCounters.policyViolationsUnaudited);
+            portfolioMetrics.setPolicyViolationsSecurityTotal(portfolioCounters.policyViolationsSecurityTotal);
+            portfolioMetrics.setPolicyViolationsSecurityAudited(portfolioCounters.policyViolationsSecurityAudited);
+            portfolioMetrics.setPolicyViolationsSecurityUnaudited(portfolioCounters.policyViolationsSecurityUnaudited);
+            portfolioMetrics.setPolicyViolationsLicenseTotal(portfolioCounters.policyViolationsLicenseTotal);
+            portfolioMetrics.setPolicyViolationsLicenseAudited(portfolioCounters.policyViolationsLicenseAudited);
+            portfolioMetrics.setPolicyViolationsLicenseUnaudited(portfolioCounters.policyViolationsLicenseUnaudited);
+            portfolioMetrics.setPolicyViolationsOperationalTotal(portfolioCounters.policyViolationsOperationalTotal);
+            portfolioMetrics.setPolicyViolationsOperationalAudited(portfolioCounters.policyViolationsOperationalAudited);
+            portfolioMetrics.setPolicyViolationsOperationalUnaudited(portfolioCounters.policyViolationsOperationalUnaudited);
             portfolioMetrics.setFirstOccurrence(measuredAt);
             portfolioMetrics.setLastOccurrence(measuredAt);
             LOGGER.debug("Persisting portfolio metrics");
@@ -245,33 +254,29 @@ public class MetricsUpdateTask implements Subscriber {
         // Holds the metrics returned from all components that are dependencies of the project
         final List<MetricCounters> countersList = new ArrayList<>();
 
-        // Retrieve all component dependencies for the project
-        LOGGER.debug("Retrieving all dependencies for project: " + project.getUuid());
-        final List<Dependency> dependencies = qm.getAllDependencies(project);
-        LOGGER.debug("Project metrics will include " + dependencies.size() + " dependencies");
+        // Retrieve all components for the project
+        LOGGER.debug("Retrieving all components for project: " + project.getUuid());
+        final List<Component> components = qm.getAllComponents(project);
+        LOGGER.debug("Project metrics will include " + components.size() + " components");
 
         LOGGER.debug("Iterating through dependencies");
         // Iterate through all dependencies
-        for (final Dependency dependency: dependencies) {
-
-            // Get the component
-            final Component component = dependency.getComponent();
-
-            // Update the dependency metrics
-            final MetricCounters dependencyMetrics = updateDependencyMetrics(qm, dependency.getId());
-
-            // Update the component metrics
-            updateComponentMetrics(qm, component.getId());
-
-            // Adds the metrics from the dependency to the list of metrics for the project
-            countersList.add(dependencyMetrics);
+        for (final Component component: components) {
+            try {
+                // Update the component metrics
+                final MetricCounters componentMetrics = updateComponentMetrics(qm, component.getId());
+                // Adds the metrics from the component to the list of metrics for the project
+                countersList.add(componentMetrics);
+            } catch (Exception e) {
+                LOGGER.error("An unexpected error occurred while updating project metrics and iterating through components. The error occurred while updating metrics for project: " + project.getUuid().toString() + " and component: " + component.getUuid().toString(), e);
+            }
         }
-        LOGGER.debug("Dependency iteration complete");
+        LOGGER.debug("Component iteration complete");
 
         // Iterate through the metrics from all components that are dependencies of the project
         for (final MetricCounters depMetric: countersList) {
             // Add individual component metrics to the overall project metrics
-            counters.dependencies++;
+            counters.components++;
             counters.critical += depMetric.critical;
             counters.high += depMetric.high;
             counters.medium += depMetric.medium;
@@ -280,8 +285,23 @@ public class MetricsUpdateTask implements Subscriber {
             counters.vulnerabilities += depMetric.severitySum();
 
             if (depMetric.severitySum() > 0) {
-                counters.vulnerableDependencies++;
+                counters.vulnerableComponents++;
             }
+            counters.policyViolationsFail += depMetric.policyViolationsFail;
+            counters.policyViolationsWarn += depMetric.policyViolationsWarn;
+            counters.policyViolationsInfo += depMetric.policyViolationsInfo;
+            counters.policyViolationsTotal += depMetric.policyViolationsTotal;
+            counters.policyViolationsAudited += depMetric.policyViolationsAudited;
+            counters.policyViolationsUnaudited += depMetric.policyViolationsUnaudited;
+            counters.policyViolationsSecurityTotal += depMetric.policyViolationsSecurityTotal;
+            counters.policyViolationsSecurityAudited += depMetric.policyViolationsSecurityAudited;
+            counters.policyViolationsSecurityUnaudited += depMetric.policyViolationsSecurityUnaudited;
+            counters.policyViolationsLicenseTotal += depMetric.policyViolationsLicenseTotal;
+            counters.policyViolationsLicenseAudited += depMetric.policyViolationsLicenseAudited;
+            counters.policyViolationsLicenseUnaudited += depMetric.policyViolationsLicenseUnaudited;
+            counters.policyViolationsOperationalTotal += depMetric.policyViolationsOperationalTotal;
+            counters.policyViolationsOperationalAudited += depMetric.policyViolationsOperationalAudited;
+            counters.policyViolationsOperationalUnaudited += depMetric.policyViolationsOperationalUnaudited;
         }
 
         // For the time being finding and vulnerability counts are the same.
@@ -308,8 +328,23 @@ public class MetricsUpdateTask implements Subscriber {
                 && last.getFindingsAudited() == counters.findingsAudited
                 && last.getFindingsUnaudited() == counters.findingsUnaudited
                 && last.getInheritedRiskScore() == counters.getInheritedRiskScore()
-                && last.getComponents() == counters.dependencies // at a project level, the field is actually 'components'
-                && last.getVulnerableComponents() == counters.vulnerableDependencies) {
+                && last.getPolicyViolationsFail() == counters.policyViolationsFail
+                && last.getPolicyViolationsWarn() == counters.policyViolationsWarn
+                && last.getPolicyViolationsInfo() == counters.policyViolationsInfo
+                && last.getPolicyViolationsTotal() == counters.policyViolationsTotal
+                && last.getPolicyViolationsAudited() == counters.policyViolationsAudited
+                && last.getPolicyViolationsUnaudited() == counters.policyViolationsUnaudited
+                && last.getPolicyViolationsSecurityTotal() == counters.policyViolationsSecurityTotal
+                && last.getPolicyViolationsSecurityAudited() == counters.policyViolationsSecurityAudited
+                && last.getPolicyViolationsSecurityUnaudited() == counters.policyViolationsSecurityUnaudited
+                && last.getPolicyViolationsLicenseTotal() == counters.policyViolationsLicenseTotal
+                && last.getPolicyViolationsLicenseAudited() == counters.policyViolationsLicenseAudited
+                && last.getPolicyViolationsLicenseUnaudited() == counters.policyViolationsLicenseUnaudited
+                && last.getPolicyViolationsOperationalTotal() == counters.policyViolationsOperationalTotal
+                && last.getPolicyViolationsOperationalAudited() == counters.policyViolationsOperationalAudited
+                && last.getPolicyViolationsOperationalUnaudited() == counters.policyViolationsOperationalUnaudited
+                && last.getComponents() == counters.components
+                && last.getVulnerableComponents() == counters.vulnerableComponents) {
 
             LOGGER.debug("Metrics are unchanged for project: " + project.getUuid() + ". Updating last occurrence");
             // Matches... Update the last occurrence timestamp instead of creating a new record with the same info
@@ -331,13 +366,28 @@ public class MetricsUpdateTask implements Subscriber {
             projectMetrics.setLow(counters.low);
             projectMetrics.setUnassigned(counters.unassigned);
             projectMetrics.setVulnerabilities(counters.vulnerabilities);
-            projectMetrics.setComponents(counters.dependencies);
-            projectMetrics.setVulnerableComponents(counters.vulnerableDependencies);
+            projectMetrics.setComponents(counters.components);
+            projectMetrics.setVulnerableComponents(counters.vulnerableComponents);
             projectMetrics.setSuppressed(counters.suppressions);
             projectMetrics.setFindingsTotal(counters.findingsTotal);
             projectMetrics.setFindingsAudited(counters.findingsAudited);
             projectMetrics.setFindingsUnaudited(counters.findingsUnaudited);
             projectMetrics.setInheritedRiskScore(counters.getInheritedRiskScore());
+            projectMetrics.setPolicyViolationsFail(counters.policyViolationsFail);
+            projectMetrics.setPolicyViolationsWarn(counters.policyViolationsWarn);
+            projectMetrics.setPolicyViolationsInfo(counters.policyViolationsInfo);
+            projectMetrics.setPolicyViolationsTotal(counters.policyViolationsTotal);
+            projectMetrics.setPolicyViolationsAudited(counters.policyViolationsAudited);
+            projectMetrics.setPolicyViolationsUnaudited(counters.policyViolationsUnaudited);
+            projectMetrics.setPolicyViolationsSecurityTotal(counters.policyViolationsSecurityTotal);
+            projectMetrics.setPolicyViolationsSecurityAudited(counters.policyViolationsSecurityAudited);
+            projectMetrics.setPolicyViolationsSecurityUnaudited(counters.policyViolationsSecurityUnaudited);
+            projectMetrics.setPolicyViolationsLicenseTotal(counters.policyViolationsLicenseTotal);
+            projectMetrics.setPolicyViolationsLicenseAudited(counters.policyViolationsLicenseAudited);
+            projectMetrics.setPolicyViolationsLicenseUnaudited(counters.policyViolationsLicenseUnaudited);
+            projectMetrics.setPolicyViolationsOperationalTotal(counters.policyViolationsOperationalTotal);
+            projectMetrics.setPolicyViolationsOperationalAudited(counters.policyViolationsOperationalAudited);
+            projectMetrics.setPolicyViolationsOperationalUnaudited(counters.policyViolationsOperationalUnaudited);
             projectMetrics.setFirstOccurrence(measuredAt);
             projectMetrics.setLastOccurrence(measuredAt);
             LOGGER.debug("Persisting metrics for project: " + project.getUuid());
@@ -378,8 +428,35 @@ public class MetricsUpdateTask implements Subscriber {
         counters.findingsAudited = toIntExact(qm.getAuditedCount(component));
         counters.findingsUnaudited = counters.findingsTotal - counters.findingsAudited;
 
+        for (final PolicyViolation violation: qm.getAllPolicyViolations(component)) {
+            counters.policyViolationsTotal++;
+
+            // Assign violation states
+            if (Policy.ViolationState.FAIL == violation.getPolicyCondition().getPolicy().getViolationState()) {
+                counters.policyViolationsFail++;
+            } else if (Policy.ViolationState.WARN == violation.getPolicyCondition().getPolicy().getViolationState()) {
+                counters.policyViolationsWarn++;
+            } else if (Policy.ViolationState.INFO == violation.getPolicyCondition().getPolicy().getViolationState()) {
+                counters.policyViolationsInfo++;
+            }
+            // Assign violation types
+            if (PolicyViolation.Type.LICENSE == violation.getType()) {
+                counters.policyViolationsLicenseTotal++;
+                //counters.policyViolationsLicenseAudited = qm.getAuditedCount(violation, component);
+                counters.policyViolationsLicenseUnaudited = counters.policyViolationsLicenseTotal - counters.policyViolationsLicenseAudited;
+            } else if (PolicyViolation.Type.SECURITY == violation.getType()) {
+                counters.policyViolationsSecurityTotal++;
+                //counters.policyViolationsSecurityAudited = qm.getAuditedCount(violation, component);
+                counters.policyViolationsSecurityUnaudited = counters.policyViolationsSecurityTotal - counters.policyViolationsSecurityAudited;
+            } else if (PolicyViolation.Type.OPERATIONAL == violation.getType()) {
+                counters.policyViolationsOperationalTotal++;
+                //counters.policyViolationsOperationalAudited = qm.getAuditedCount(violation, component);
+                counters.policyViolationsOperationalUnaudited = counters.policyViolationsOperationalTotal - counters.policyViolationsOperationalAudited;
+            }
+        }
+
         // Query for an existing ComponentMetrics
-        final ComponentMetrics last = qm.getMostRecentComponentMetrics(component);
+        final DependencyMetrics last = qm.getMostRecentDependencyMetrics(component);
         if (last != null
                 && last.getCritical() == counters.critical
                 && last.getHigh() == counters.high
@@ -391,7 +468,22 @@ public class MetricsUpdateTask implements Subscriber {
                 && last.getFindingsTotal() == counters.findingsTotal
                 && last.getFindingsAudited() == counters.findingsAudited
                 && last.getFindingsUnaudited() == counters.findingsUnaudited
-                && last.getInheritedRiskScore() == counters.getInheritedRiskScore()) {
+                && last.getInheritedRiskScore() == counters.getInheritedRiskScore()
+                && last.getPolicyViolationsFail() == counters.policyViolationsFail
+                && last.getPolicyViolationsWarn() == counters.policyViolationsWarn
+                && last.getPolicyViolationsInfo() == counters.policyViolationsInfo
+                && last.getPolicyViolationsTotal() == counters.policyViolationsTotal
+                && last.getPolicyViolationsAudited() == counters.policyViolationsAudited
+                && last.getPolicyViolationsUnaudited() == counters.policyViolationsUnaudited
+                && last.getPolicyViolationsSecurityTotal() == counters.policyViolationsSecurityTotal
+                && last.getPolicyViolationsSecurityAudited() == counters.policyViolationsSecurityAudited
+                && last.getPolicyViolationsSecurityUnaudited() == counters.policyViolationsSecurityUnaudited
+                && last.getPolicyViolationsLicenseTotal() == counters.policyViolationsLicenseTotal
+                && last.getPolicyViolationsLicenseAudited() == counters.policyViolationsLicenseAudited
+                && last.getPolicyViolationsLicenseUnaudited() == counters.policyViolationsLicenseUnaudited
+                && last.getPolicyViolationsOperationalTotal() == counters.policyViolationsOperationalTotal
+                && last.getPolicyViolationsOperationalAudited() == counters.policyViolationsOperationalAudited
+                && last.getPolicyViolationsOperationalUnaudited() == counters.policyViolationsOperationalUnaudited) {
 
             LOGGER.debug("Metrics are unchanged for component: " + component.getUuid() + ". Updating last occurrence");
             // Matches... Update the last occurrence timestamp instead of creating a new record with the same info
@@ -405,7 +497,8 @@ public class MetricsUpdateTask implements Subscriber {
             qm.persist(component);
         } else {
             LOGGER.debug("Metrics have changed (or were never previously measured) for component: " + component.getUuid());
-            final ComponentMetrics componentMetrics = new ComponentMetrics();
+            final DependencyMetrics componentMetrics = new DependencyMetrics();
+            componentMetrics.setProject(component.getProject());
             componentMetrics.setComponent(component);
             componentMetrics.setCritical(counters.critical);
             componentMetrics.setHigh(counters.high);
@@ -418,6 +511,21 @@ public class MetricsUpdateTask implements Subscriber {
             componentMetrics.setFindingsAudited(counters.findingsAudited);
             componentMetrics.setFindingsUnaudited(counters.findingsUnaudited);
             componentMetrics.setInheritedRiskScore(counters.getInheritedRiskScore());
+            componentMetrics.setPolicyViolationsFail(counters.policyViolationsFail);
+            componentMetrics.setPolicyViolationsWarn(counters.policyViolationsWarn);
+            componentMetrics.setPolicyViolationsInfo(counters.policyViolationsInfo);
+            componentMetrics.setPolicyViolationsTotal(counters.policyViolationsTotal);
+            componentMetrics.setPolicyViolationsAudited(counters.policyViolationsAudited);
+            componentMetrics.setPolicyViolationsUnaudited(counters.policyViolationsUnaudited);
+            componentMetrics.setPolicyViolationsSecurityTotal(counters.policyViolationsSecurityTotal);
+            componentMetrics.setPolicyViolationsSecurityAudited(counters.policyViolationsSecurityAudited);
+            componentMetrics.setPolicyViolationsSecurityUnaudited(counters.policyViolationsSecurityUnaudited);
+            componentMetrics.setPolicyViolationsLicenseTotal(counters.policyViolationsLicenseTotal);
+            componentMetrics.setPolicyViolationsLicenseAudited(counters.policyViolationsLicenseAudited);
+            componentMetrics.setPolicyViolationsLicenseUnaudited(counters.policyViolationsLicenseUnaudited);
+            componentMetrics.setPolicyViolationsOperationalTotal(counters.policyViolationsOperationalTotal);
+            componentMetrics.setPolicyViolationsOperationalAudited(counters.policyViolationsOperationalAudited);
+            componentMetrics.setPolicyViolationsOperationalUnaudited(counters.policyViolationsOperationalUnaudited);
             componentMetrics.setFirstOccurrence(measuredAt);
             componentMetrics.setLastOccurrence(measuredAt);
             LOGGER.debug("Persisting metrics for component: " + component.getUuid());
@@ -429,82 +537,6 @@ public class MetricsUpdateTask implements Subscriber {
             qm.persist(component);
         }
         LOGGER.debug("Completed metrics update for component: " + component.getUuid());
-        return counters;
-    }
-
-    /**
-     * Performs metric updates on a specific dependency.
-     * @param qm a QueryManager instance
-     * @param oid object ID of the dependency to perform metric updates on
-     * @return MetricCounters
-     */
-    private MetricCounters updateDependencyMetrics(final QueryManager qm, final long oid) {
-        final Dependency dependency = qm.getObjectById(Dependency.class, oid);
-        LOGGER.debug("Executing metrics update for dependency: " + dependency.getId());
-        final Date measuredAt = new Date();
-
-        final MetricCounters counters = new MetricCounters();
-        final Project project = dependency.getProject();
-        final Component component = dependency.getComponent();
-
-        LOGGER.debug("Retrieving vulnerabilities for dependency: " + dependency.getId());
-        // Retrieve the non-suppressed vulnerabilities for the component
-        for (final Vulnerability vuln: qm.getAllVulnerabilities(dependency)) {
-            counters.updateSeverity(vuln.getSeverity());
-        }
-        LOGGER.debug("Retrieving existing suppression count for dependency: " + dependency.getId());
-        counters.suppressions = toIntExact(qm.getSuppressedCount(project, component));
-
-        // For the time being finding and vulnerability counts are the same.
-        // However, vulns may be defined as 'confirmed' in a future release.
-        counters.findingsTotal = counters.severitySum();
-        LOGGER.debug("Retrieving existing audited count for dependency: " + dependency.getId());
-        counters.findingsAudited = toIntExact(qm.getAuditedCount(project, component));
-        counters.findingsUnaudited = counters.findingsTotal - counters.findingsAudited;
-
-        LOGGER.debug("Retrieving most recent metrics for dependency: " + dependency.getId());
-        // Query for an existing DependencyMetrics
-        final DependencyMetrics last = qm.getMostRecentDependencyMetrics(dependency);
-        if (last != null
-                && last.getCritical() == counters.critical
-                && last.getHigh() == counters.high
-                && last.getMedium() == counters.medium
-                && last.getLow() == counters.low
-                && last.getUnassigned() == counters.unassigned
-                && last.getVulnerabilities() == counters.severitySum()
-                && last.getSuppressed() == counters.suppressions
-                && last.getFindingsTotal() == counters.findingsTotal
-                && last.getFindingsAudited() == counters.findingsAudited
-                && last.getFindingsUnaudited() == counters.findingsUnaudited
-                && last.getInheritedRiskScore() == counters.getInheritedRiskScore()) {
-
-            LOGGER.debug("Metrics are unchanged for dependency: " + dependency.getId() + ". Updating last occurrence");
-            // Matches... Update the last occurrence timestamp instead of creating a new record with the same info
-            last.setLastOccurrence(measuredAt);
-            LOGGER.debug("Persisting metrics for dependency: " + dependency.getId());
-            qm.persist(last);
-        } else {
-            LOGGER.debug("Metrics have changed (or were never previously measured) for dependency: " + dependency.getId());
-            final DependencyMetrics dependencyMetrics = new DependencyMetrics();
-            dependencyMetrics.setProject(project);
-            dependencyMetrics.setComponent(component);
-            dependencyMetrics.setCritical(counters.critical);
-            dependencyMetrics.setHigh(counters.high);
-            dependencyMetrics.setMedium(counters.medium);
-            dependencyMetrics.setLow(counters.low);
-            dependencyMetrics.setUnassigned(counters.unassigned);
-            dependencyMetrics.setVulnerabilities(counters.severitySum());
-            dependencyMetrics.setSuppressed(counters.suppressions);
-            dependencyMetrics.setFindingsTotal(counters.findingsTotal);
-            dependencyMetrics.setFindingsAudited(counters.findingsAudited);
-            dependencyMetrics.setFindingsUnaudited(counters.findingsUnaudited);
-            dependencyMetrics.setInheritedRiskScore(counters.getInheritedRiskScore());
-            dependencyMetrics.setFirstOccurrence(measuredAt);
-            dependencyMetrics.setLastOccurrence(measuredAt);
-            LOGGER.debug("Persisting metrics for dependency: " + dependency.getId());
-            qm.persist(dependencyMetrics);
-        }
-        LOGGER.debug("Completed metrics update for dependency: " + dependency.getId());
         return counters;
     }
 
@@ -596,9 +628,13 @@ public class MetricsUpdateTask implements Subscriber {
     private class MetricCounters {
 
         private int critical, high, medium, low, unassigned;
-        private int projects, vulnerableProjects, components, vulnerableComponents, dependencies,
-                vulnerableDependencies, vulnerabilities, suppressions, findingsTotal, findingsAudited,
-                findingsUnaudited;
+        private int projects, vulnerableProjects, components, vulnerableComponents,
+                vulnerabilities, suppressions, findingsTotal, findingsAudited, findingsUnaudited,
+                policyViolationsFail, policyViolationsWarn, policyViolationsInfo, policyViolationsTotal,
+                policyViolationsAudited, policyViolationsUnaudited, policyViolationsSecurityTotal,
+                policyViolationsSecurityAudited, policyViolationsSecurityUnaudited, policyViolationsLicenseTotal,
+                policyViolationsLicenseAudited, policyViolationsLicenseUnaudited, policyViolationsOperationalTotal,
+                policyViolationsOperationalAudited, policyViolationsOperationalUnaudited;
 
         /**
          * Increments critical, high, medium, low counters based on the specified severity.

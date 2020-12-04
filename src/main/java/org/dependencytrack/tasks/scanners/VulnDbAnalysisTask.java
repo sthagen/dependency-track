@@ -31,7 +31,7 @@ import org.dependencytrack.model.ConfigPropertyConstants;
 import org.dependencytrack.model.Vulnerability;
 import org.dependencytrack.parser.vulndb.ModelConverter;
 import org.dependencytrack.persistence.QueryManager;
-import org.dependencytrack.util.InternalComponentIdentificationUtil;
+import org.dependencytrack.util.NotificationUtil;
 import us.springett.vulndbdatamirror.client.VulnDbApi;
 import us.springett.vulndbdatamirror.parser.model.Results;
 import java.util.List;
@@ -49,6 +49,10 @@ public class VulnDbAnalysisTask extends BaseComponentAnalyzerTask implements Sub
     private final int PAGE_SIZE = 100;
     private String apiConsumerKey;
     private String apiConsumerSecret;
+
+    public AnalyzerIdentity getAnalyzerIdentity() {
+        return AnalyzerIdentity.VULNDB_ANALYZER;
+    }
 
     /**
      * {@inheritDoc}
@@ -95,13 +99,13 @@ public class VulnDbAnalysisTask extends BaseComponentAnalyzerTask implements Sub
     }
 
     /**
-     * Determines if the {@link VulnDbAnalysisTask} is suitable for analysis based on the PackageURL.
+     * Determines if the {@link VulnDbAnalysisTask} is capable of analyzing the specified PackageURL.
      * Because PURL is not a factor in determining this, the method will always return true.
      *
      * @param purl the PackageURL to analyze
      * @return true if VulnDbAnalysisTask should analyze, false if not
      */
-    public boolean shouldAnalyze(final PackageURL purl) {
+    public boolean isCapable(final PackageURL purl) {
         return true;
     }
 
@@ -112,7 +116,7 @@ public class VulnDbAnalysisTask extends BaseComponentAnalyzerTask implements Sub
     public void analyze(final List<Component> components) {
         final VulnDbApi api = new VulnDbApi(this.apiConsumerKey, this.apiConsumerSecret, UnirestFactory.getUnirestInstance());
         for (final Component component: components) {
-            if (!component.isInternal() && shouldAnalyze(component.getPurl()) && component.getCpe() != null
+            if (!component.isInternal() && isCapable(component.getPurl()) && component.getCpe() != null
                     && !isCacheCurrent(Vulnerability.Source.VULNDB, TARGET_HOST, component.getCpe())) {
                 int page = 1;
                 boolean more = true;
@@ -131,6 +135,7 @@ public class VulnDbAnalysisTask extends BaseComponentAnalyzerTask implements Sub
         }
     }
 
+    @SuppressWarnings("unchecked")
     private boolean processResults(final Results results, final Component component) {
         try (final QueryManager qm = new QueryManager()) {
             for (us.springett.vulndbdatamirror.parser.model.Vulnerability vulnDbVuln : (List<us.springett.vulndbdatamirror.parser.model.Vulnerability>) results.getResults()) {
@@ -140,9 +145,11 @@ public class VulnDbAnalysisTask extends BaseComponentAnalyzerTask implements Sub
                 } else {
                     vulnerability = qm.synchronizeVulnerability(ModelConverter.convert(qm, vulnDbVuln), false);
                 }
-                qm.addVulnerability(vulnerability, component);
+                NotificationUtil.analyzeNotificationCriteria(qm, vulnerability, component);
+                qm.addVulnerability(vulnerability, component, this.getAnalyzerIdentity());
+                addVulnerabilityToCache(component, vulnerability);
             }
-            updateAnalysisCacheStats(qm, Vulnerability.Source.VULNDB, TARGET_HOST, component.getCpe());
+            updateAnalysisCacheStats(qm, Vulnerability.Source.VULNDB, TARGET_HOST, component.getCpe(), component.getCacheResult());
             return results.getPage() * PAGE_SIZE < results.getTotal();
         }
     }

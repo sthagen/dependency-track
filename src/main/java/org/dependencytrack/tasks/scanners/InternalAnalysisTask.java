@@ -41,6 +41,10 @@ public class InternalAnalysisTask extends AbstractVulnerableSoftwareAnalysisTask
 
     private static final Logger LOGGER = Logger.getLogger(InternalAnalysisTask.class);
 
+    public AnalyzerIdentity getAnalyzerIdentity() {
+        return AnalyzerIdentity.INTERNAL_ANALYZER;
+    }
+
     /**
      * {@inheritDoc}
      */
@@ -61,12 +65,12 @@ public class InternalAnalysisTask extends AbstractVulnerableSoftwareAnalysisTask
     }
 
     /**
-     * Determines if the {@link InternalAnalysisTask} is suitable for analysis based on the PackageURL.
+     * Determines if the {@link InternalAnalysisTask} is capable of analyzing the specified PackageURL.
      *
      * @param purl the PackageURL to analyze
-     * @return true if CpeAnalysisTask should analyze, false if not
+     * @return true if InternalAnalysisTask should analyze, false if not
      */
-    public boolean shouldAnalyze(final PackageURL purl) {
+    public boolean isCapable(final PackageURL purl) {
         return true;
     }
 
@@ -78,7 +82,8 @@ public class InternalAnalysisTask extends AbstractVulnerableSoftwareAnalysisTask
         final boolean fuzzyEnabled = super.isEnabled(ConfigPropertyConstants.SCANNER_INTERNAL_FUZZY_ENABLED);
         final boolean excludeComponentsWithPurl = super.isEnabled(ConfigPropertyConstants.SCANNER_INTERNAL_FUZZY_EXCLUDE_PURL);
         try (QueryManager qm = new QueryManager()) {
-            for (Component component : components) {
+            for (final Component c : components) {
+                final Component component = qm.getObjectById(Component.class, c.getId()); // Refresh component and attach to current pm.
                 versionRangeAnalysis(qm, component);
                 if (fuzzyEnabled) {
                     if (component.getPurl() == null || !excludeComponentsWithPurl) {

@@ -6,7 +6,6 @@
 [![Website](https://img.shields.io/badge/https://-dependencytrack.org-blue.svg)](https://dependencytrack.org/)
 [![Documentation](https://img.shields.io/badge/read-documentation-blue.svg)](https://docs.dependencytrack.org/)
 [![Slack](https://img.shields.io/badge/chat%20on-slack-46BC99.svg)](https://dependencytrack.org/slack)
-[![Join the chat at https://gitter.im/dependency-track/Lobby](https://badges.gitter.im/dependency-track/Lobby.svg)](https://dependencytrack.org/gitter)
 [![Group Discussion](https://img.shields.io/badge/discussion-groups.io-blue.svg)](https://dependencytrack.org/discussion)
 [![YouTube Subscribe](https://img.shields.io/badge/youtube-subscribe-%23c4302b.svg)](https://dependencytrack.org/youtube)
 [![Twitter](https://img.shields.io/twitter/follow/dependencytrack.svg?label=Follow&style=social)](https://twitter.com/dependencytrack)
@@ -27,7 +26,12 @@ Dependency-Track monitors component usage across all versions of every applicati
 proactively identify risk across an organization. The platform has an API-first design and is ideal for use in
 Continuous Integration (CI) and Continuous Delivery (CD) environments.
 
-**NOTICE: Always use official binary releases in production.**
+<p align="center">
+  <a href="https://www.youtube.com/watch?v=cQuk6jKTrTs">
+    <img style="border:0" width="720" height="405" src="https://raw.githubusercontent.com/DependencyTrack/dependency-track/master/docs/images/promo-glitch.png">
+  </a>
+</p>
+
 
 ## Ecosystem Overview
 ![alt text](https://raw.githubusercontent.com/DependencyTrack/dependency-track/master/docs/images/integrations.png)
@@ -66,10 +70,11 @@ Continuous Integration (CI) and Continuous Delivery (CD) environments.
 * Supports internally managed users, Active Directory/LDAP, and API Keys
 * Simple to install and configure. Get up and running in just a few minutes
 
-## Screenshots
+
+<hr>
+
 ![alt text](https://raw.githubusercontent.com/DependencyTrack/dependency-track/master/docs/images/screenshots/dashboard.png)
 
-For more eye-candy, visit <https://dependencytrack.org/>.
 
 ## Distributions
 Dependency-Track supports the following three deployment options:
@@ -77,6 +82,8 @@ Dependency-Track supports the following three deployment options:
 * Docker container
 * Executable WAR
 * Conventional WAR
+
+**NOTICE: Always use official binary releases in production.**
 
 ## Deploying Docker Container
 Deploying with Docker is the easiest and fastest method of getting started. No prerequisites are required
@@ -165,17 +172,9 @@ mvn clean package -P embedded-jetty -Dlogback.configuration.file=src/main/docker
 
 * Twitter: <https://dependencytrack.org/twitter>
 * YouTube: <https://dependencytrack.org/youtube>
-* Gitter: <https://dependencytrack.org/gitter>
 * Slack: <https://dependencytrack.org/slack> (Invite:  <https://dependencytrack.org/slack/invite>)
 * Discussion (Groups.io): <https://dependencytrack.org/discussion>
 
-## Support
-Dependency-Track is an open source project, created by people who believe that the knowledge of using
-vulnerable components should be accessible to anyone with a desire to know. By supporting this project, you'll
-allow the team to outsource testing, infrastructure, further research and development efforts, and engage in
-outreach to various communities that would benefit from this technology.
-
-[![PayPal](https://www.paypalobjects.com/en_US/i/btn/btn_donate_SM.gif)](https://www.paypal.com/cgi-bin/webscr?cmd=_donations&business=paypal%40owasp%2eorg&lc=US&item_name=OWASP%20Dependency-Track&no_note=0&currency_code=USD&bn=PP%2dDonationsBF)
 
 ## Copyright & License
 Dependency-Track is Copyright (c) Steve Springett. All Rights Reserved.
