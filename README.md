@@ -1,5 +1,5 @@
 [![Build Status](https://github.com/DependencyTrack/dependency-track/workflows/CI%20Build/badge.svg)](https://github.com/DependencyTrack/dependency-track/actions?workflow=CI+Build)
-[![Codacy Badge](https://api.codacy.com/project/badge/Grade/a1d99b45c27e4d069f94d24bcce8d7e6)](https://www.codacy.com/app/DependencyTrack/dependency-track?utm_source=github.com&amp;utm_medium=referral&amp;utm_content=DependencyTrack/dependency-track&amp;utm_campaign=Badge_Grade)
+[![Codacy Badge](https://app.codacy.com/project/badge/Grade/b2ecd06dab57438a9a55bc4a71c5a8ce)](https://www.codacy.com/gh/DependencyTrack/dependency-track/dashboard?utm_source=github.com&amp;utm_medium=referral&amp;utm_content=DependencyTrack/dependency-track&amp;utm_campaign=Badge_Grade)
 [![Alpine](https://img.shields.io/badge/built%20on-Alpine-blue.svg)](https://github.com/stevespringett/Alpine)
 [![License][license-image]][license-url]
 [![OWASP Flagship](https://img.shields.io/badge/owasp-flagship%20project-orange.svg)](https://www.owasp.org/index.php/OWASP_Dependency_Track_Project)
@@ -17,9 +17,9 @@
 ![logo preview](https://raw.githubusercontent.com/DependencyTrack/branding/master/dt-logo-black-text.svg?sanitize=true)
 
 
-Dependency-Track is an intelligent Software [Supply Chain Component Analysis] platform that allows organizations to
-identify and reduce risk from the use of third-party and open source components. Dependency-Track takes a unique
-and highly beneficial approach by leveraging the capabilities of [Software Bill-of-Materials] (SBOM). This approach
+Dependency-Track is an intelligent [Component Analysis] platform that allows organizations to
+identify and reduce risk in the software supply chain. Dependency-Track takes a unique
+and highly beneficial approach by leveraging the capabilities of [Software Bill of Materials] (SBOM). This approach
 provides capabilities that traditional Software Composition Analysis (SCA) solutions cannot achieve.
 
 Dependency-Track monitors component usage across all versions of every application in its portfolio in order to
@@ -190,8 +190,8 @@ the [NOTICES.txt] [notices] file for more information.
   [Sonatype OSS Index]: https://ossindex.sonatype.org
   [VulnDB]: https://vulndb.cyberriskanalytics.com
   [Risk Based Security]: https://www.riskbasedsecurity.com
-  [Supply Chain Component Analysis]: https://owasp.org/www-community/Component_Analysis
-  [Software Bill-of-Materials]: https://owasp.org/www-community/Component_Analysis#software-bill-of-materials-sbom
+  [Component Analysis]: https://owasp.org/www-community/Component_Analysis
+  [Software Bill of Materials]: https://owasp.org/www-community/Component_Analysis#software-bill-of-materials-sbom
   [CycloneDX]: https://cyclonedx.org
   [SPDX]: https://spdx.org
   [license-image]: https://img.shields.io/badge/license-apache%20v2-brightgreen.svg
