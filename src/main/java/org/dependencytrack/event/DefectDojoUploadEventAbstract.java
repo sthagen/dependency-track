@@ -16,22 +16,17 @@
  * SPDX-License-Identifier: Apache-2.0
  * Copyright (c) Steve Springett. All Rights Reserved.
  */
-package org.dependencytrack.upgrade;
+package org.dependencytrack.event;
 
-import alpine.upgrade.UpgradeItem;
-import java.util.ArrayList;
-import java.util.List;
+import java.util.UUID;
 
-class UpgradeItems {
+public class DefectDojoUploadEventAbstract extends AbstractVulnerabilityManagementUploadEvent {
 
-    private static final List<Class<? extends UpgradeItem>> UPGRADE_ITEMS = new ArrayList<>();
-    static {
-        UPGRADE_ITEMS.add(org.dependencytrack.upgrade.v400.v400Updater.class);
-        UPGRADE_ITEMS.add(org.dependencytrack.upgrade.v410.v410Updater.class);
-    };
-
-    static List<Class<? extends UpgradeItem>> getUpgradeItems() {
-        return UPGRADE_ITEMS;
+    public DefectDojoUploadEventAbstract() {
+        super();
     }
 
+    public DefectDojoUploadEventAbstract(final UUID projectUuid) {
+        super(projectUuid);
+    }
 }
