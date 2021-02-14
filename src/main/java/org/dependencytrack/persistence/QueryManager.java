@@ -1125,9 +1125,11 @@ public class QueryManager extends AlpineQueryManager {
      */
     @SuppressWarnings("unchecked")
     public PaginatedResult getPolicyViolations(final Project project, boolean includeSuppressed) {
-        final Query<PolicyViolation> query = pm.newQuery(PolicyViolation.class, "project.id == :pid");
-        if (!includeSuppressed) {
-            query.setFilter("analysis.suppressed == false || analysis.suppressed == null");
+        final Query<PolicyViolation> query = pm.newQuery(PolicyViolation.class);
+        if (includeSuppressed) {
+            query.setFilter("project.id == :pid");
+        } else {
+            query.setFilter("project.id == :pid && (analysis.suppressed == false || analysis.suppressed == null)");
         }
         if (orderBy == null) {
             query.setOrdering("timestamp desc, component.name, component.version");
@@ -1148,9 +1150,11 @@ public class QueryManager extends AlpineQueryManager {
      */
     @SuppressWarnings("unchecked")
     public PaginatedResult getPolicyViolations(final Component component, boolean includeSuppressed) {
-        final Query<PolicyViolation> query = pm.newQuery(PolicyViolation.class, "component.id == :cid");
-        if (!includeSuppressed) {
-            query.setFilter("analysis.suppressed == false || analysis.suppressed == null");
+        final Query<PolicyViolation> query = pm.newQuery(PolicyViolation.class);
+        if (includeSuppressed) {
+            query.setFilter("component.id == :cid");
+        } else {
+            query.setFilter("component.id == :cid && (analysis.suppressed == false || analysis.suppressed == null)");
         }
         if (orderBy == null) {
             query.setOrdering("timestamp desc");
@@ -1920,7 +1924,7 @@ public class QueryManager extends AlpineQueryManager {
      * @return a List of Vulnerability objects
      */
     @SuppressWarnings("unchecked")
-    private List<Vulnerability> getAllVulnerabilities(Component component, boolean includeSuppressed) {
+    public List<Vulnerability> getAllVulnerabilities(Component component, boolean includeSuppressed) {
         final String filter = (includeSuppressed) ? "components.contains(:component)" : "components.contains(:component)" + generateExcludeSuppressed(component.getProject(), component);
         final Query<Vulnerability> query = pm.newQuery(Vulnerability.class, filter);
         return (List<Vulnerability>)query.execute(component);
@@ -2694,7 +2698,7 @@ public class QueryManager extends AlpineQueryManager {
         return singleResult(query.executeWithArray(cacheType, targetHost, targetType, target));
     }
 
-    public void updateComponentAnalysisCache(ComponentAnalysisCache.CacheType cacheType, String targetHost, String targetType, String target, Date lastOccurrence, JsonObject result) {
+    public synchronized void updateComponentAnalysisCache(ComponentAnalysisCache.CacheType cacheType, String targetHost, String targetType, String target, Date lastOccurrence, JsonObject result) {
         ComponentAnalysisCache cac = getComponentAnalysisCache(cacheType, targetHost, targetType, target);
         if (cac == null) {
             cac = new ComponentAnalysisCache();
