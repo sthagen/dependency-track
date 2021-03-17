@@ -268,6 +268,11 @@ public class Component implements Serializable {
     @Column(name = "LICENSE_ID")
     private License resolvedLicense;
 
+    @Persistent(defaultFetchGroup = "true")
+    @Column(name = "DIRECT_DEPENDENCIES", jdbcType = "CLOB")
+    @JsonDeserialize(using = TrimmedStringDeserializer.class)
+    private String directDependencies; // This will be a JSON string
+
     @Persistent
     @Column(name = "PARENT_COMPONENT_ID")
     private Component parent;
@@ -310,6 +315,7 @@ public class Component implements Serializable {
     @NotNull
     private UUID uuid;
 
+    private transient String bomRef;
     private transient DependencyMetrics metrics;
     private transient RepositoryMetaComponent repositoryMeta;
     private transient int usedBy;
@@ -495,6 +501,9 @@ public class Component implements Serializable {
 
     @JsonSerialize(using = CustomPackageURLSerializer.class)
     public PackageURL getPurl() {
+        if (purl == null) {
+            return null;
+        }
         try {
             return new PackageURL(purl);
         } catch (MalformedPackageURLException e) {
@@ -510,6 +519,9 @@ public class Component implements Serializable {
 
     @JsonSerialize(using = CustomPackageURLSerializer.class)
     public PackageURL getPurlCoordinates() {
+        if (purlCoordinates == null) {
+            return null;
+        }
         try {
             return new PackageURL(purlCoordinates);
         } catch (MalformedPackageURLException e) {
@@ -518,7 +530,9 @@ public class Component implements Serializable {
     }
 
     public void setPurlCoordinates(PackageURL purlCoordinates) {
-        this.purlCoordinates = purlCoordinates.canonicalize();
+        if (purlCoordinates != null) {
+            this.purlCoordinates = purlCoordinates.canonicalize();
+        }
     }
 
     public String getSwidTagId() {
@@ -570,6 +584,14 @@ public class Component implements Serializable {
 
     public void setResolvedLicense(License resolvedLicense) {
         this.resolvedLicense = resolvedLicense;
+    }
+
+    public String getDirectDependencies() {
+        return directDependencies;
+    }
+
+    public void setDirectDependencies(String directDependencies) {
+        this.directDependencies = directDependencies;
     }
 
     public Component getParent() {
@@ -653,6 +675,14 @@ public class Component implements Serializable {
 
     public void setLastInheritedRiskScore(Double lastInheritedRiskScore) {
         this.lastInheritedRiskScore = lastInheritedRiskScore;
+    }
+
+    public String getBomRef() {
+        return bomRef;
+    }
+
+    public void setBomRef(String bomRef) {
+        this.bomRef = bomRef;
     }
 
     public int getUsedBy() {
