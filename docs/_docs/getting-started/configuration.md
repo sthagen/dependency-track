@@ -106,9 +106,16 @@ alpine.database.pool.enabled=true
 alpine.database.pool.max.size=20
 
 # Optional
+# This property controls the minimum number of idle connections in the pool.
+# This value should be equal to or less than alpine.database.pool.max.size.
+# Warning: If the value is less than alpine.database.pool.max.size, 
+# alpine.database.pool.idle.timeout will have no effect.
+alpine.database.pool.min.idle=10
+
+# Optional
 # This property controls the maximum amount of time that a connection is
 # allowed to sit idle in the pool.
-alpine.database.pool.idle.timeout=600000
+alpine.database.pool.idle.timeout=300000
 
 # Optional
 # This property controls the maximum lifetime of a connection in the pool.
@@ -360,7 +367,11 @@ This file resides in `<BASE_URL>/static/config.json`.
 ```json
 {
     // Required
-    // URL of the Dependency-Track backend
+    // The base URL of the API server.
+    // NOTE:
+    //   * This URL must be reachable by the browsers of your users.
+    //   * The frontend container itself does NOT communicate with the API server directly, it just serves static files.
+    //   * When deploying to dedicated servers, please use the external IP or domain of the API server.
     "API_BASE_URL": "",
     // Optional
     // Defines the issuer URL to be used for OpenID Connect.
